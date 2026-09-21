@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android visual verification"
+  short_description: "Build, launch, screenshot, and inspect Android UI"
+  default_prompt: "Use $android-visual-verification for this Android UI change: read the applicable design-review MD and reference image, build a current-spec-first evidence manifest and intentional-difference ledger, use live hot reload for iteration and evidence verification for the final check, review a fresh emulator screenshot in six adversarial passes with the mandatory detail gate, use runtime/source evidence for suspicions, inspect side-by-side/overlay diagnostics when useful, clean temporary evidence artifacts after inspection, then report exactly one verified/failed/not verified verdict."
