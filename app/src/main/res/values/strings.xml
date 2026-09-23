@@ -1,3 +1,25 @@
 <resources>
     <string name="app_name">PokeAndScan</string>
+    <string name="library_title">Your scans</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_action">Settings</string>
+    <string name="empty_library_title">No scans yet</string>
+    <string name="empty_library_description">Create your first scan to keep a clear, local record of your collection.</string>
+    <string name="new_scan_action">New scan</string>
+    <string name="new_scan_title">New scan</string>
+    <string name="new_scan_placeholder">Scan setup will be available here.</string>
+    <string name="language_setting">Language</string>
+    <string name="language_english">English</string>
+    <string name="language_slovak">Slovenčina</string>
+    <string name="theme_setting">Theme</string>
+    <string name="theme_system">System default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="privacy_title">Privacy</string>
+    <string name="privacy_action">Privacy information</string>
+    <string name="privacy_unavailable">The privacy page is not available yet.</string>
+    <string name="version_footer">%1$s · Version %2$s</string>
+    <string name="choose_language_title">Choose your language</string>
+    <string name="choose_language_description">You can change this any time in Settings.</string>
+    <string name="action_close">Close</string>
 </resources>

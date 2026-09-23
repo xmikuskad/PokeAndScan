@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">PokeAndScan</string>
+    <string name="library_title">Vaše skeny</string>
+    <string name="settings_title">Nastavenia</string>
+    <string name="settings_action">Nastavenia</string>
+    <string name="empty_library_title">Zatiaľ nemáte žiadne skeny</string>
+    <string name="empty_library_description">Vytvorte prvý sken a uchovajte si prehľadný záznam svojej zbierky priamo v zariadení.</string>
+    <string name="new_scan_action">Nový sken</string>
+    <string name="new_scan_title">Nový sken</string>
+    <string name="new_scan_placeholder">Nastavenie skenu bude dostupné tu.</string>
+    <string name="language_setting">Jazyk</string>
+    <string name="language_english">English</string>
+    <string name="language_slovak">Slovenčina</string>
+    <string name="theme_setting">Vzhľad</string>
+    <string name="theme_system">Podľa systému</string>
+    <string name="theme_light">Svetlý</string>
+    <string name="theme_dark">Tmavý</string>
+    <string name="privacy_title">Súkromie</string>
+    <string name="privacy_action">Informácie o súkromí</string>
+    <string name="privacy_unavailable">Stránka o súkromí zatiaľ nie je dostupná.</string>
+    <string name="version_footer">%1$s · Verzia %2$s</string>
+    <string name="choose_language_title">Vyberte jazyk</string>
+    <string name="choose_language_description">Jazyk môžete kedykoľvek zmeniť v nastaveniach.</string>
+    <string name="action_close">Zavrieť</string>
+</resources>
