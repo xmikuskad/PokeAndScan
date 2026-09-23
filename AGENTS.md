@@ -1,13 +1,8 @@
-## Agent skills
+# Agent instructions
 
-### Issue tracker
+This repository is an Android app scaffold. The Markdown product documents describe the intended MVP, not necessarily the current implementation.
 
-Issues and PRDs are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Use the default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-This is a single-context repository using root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+- Before changing code, inspect the current implementation. For Android code, product behavior, or project-documentation work, use [the task document router](docs/agent-router.md) to load relevant standards. Read only the sections needed for the task.
+- For unrelated repository tasks, follow the task and the relevant code/configuration without loading product specifications.
+- When working from an issue, read its acceptance criteria, inspect the affected code and nearby tests, implement the smallest complete change, and report verification and remaining gaps.
+- Apply procedures in `.codex/skills/` when a task matches them. Skill examples are procedures, not PokeAndScan product decisions.
