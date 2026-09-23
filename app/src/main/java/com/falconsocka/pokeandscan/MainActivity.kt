@@ -56,6 +56,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.falconsocka.pokeandscan.ui.theme.PokeAndScanTheme
 import java.util.Locale
 
@@ -70,25 +74,47 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private sealed class AppRoute(val titleRes: Int, val backRoute: AppRoute?) {
-    data object Welcome : AppRoute(R.string.welcome_title, null)
-    data object CaptureExplanation : AppRoute(R.string.capture_explanation_title, Welcome)
-    data object OnboardingPreparation : AppRoute(R.string.preparation_title, CaptureExplanation)
-    data object Library : AppRoute(R.string.library_title, null)
-    data object NewScan : AppRoute(R.string.new_scan_title, Library)
-    data object ScanPreparation : AppRoute(R.string.preparation_title, NewScan)
-    data object Settings : AppRoute(R.string.settings_title, Library)
+private sealed class AppDestination(val route: String, val titleRes: Int) {
+    data object Welcome : AppDestination("welcome", R.string.welcome_title)
+    data object CaptureExplanation : AppDestination("capture-explanation", R.string.capture_explanation_title)
+    data object OnboardingPreparation : AppDestination("onboarding-preparation", R.string.preparation_title)
+    data object Library : AppDestination("library", R.string.library_title)
+    data object NewScan : AppDestination("new-scan", R.string.new_scan_title)
+    data object ScanPreparation : AppDestination("scan-preparation", R.string.preparation_title)
+    data object Settings : AppDestination("settings", R.string.settings_title)
+
+    companion object {
+        fun fromRoute(route: String?): AppDestination = when (route) {
+            Welcome.route -> Welcome
+            CaptureExplanation.route -> CaptureExplanation
+            OnboardingPreparation.route -> OnboardingPreparation
+            NewScan.route -> NewScan
+            ScanPreparation.route -> ScanPreparation
+            Settings.route -> Settings
+            else -> Library
+        }
+    }
 }
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun PokeAndScanApp(preferences: AppPreferences) {
+    val navController = rememberNavController()
+    val startDestination = remember {
+        if (preferences.hasCompletedOnboarding()) AppDestination.Library.route else AppDestination.Welcome.route
+    }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = AppDestination.fromRoute(backStackEntry?.destination?.route)
     var language by remember {
         mutableStateOf(preferences.languageOrDefault())
     }
     var theme by remember { mutableStateOf(preferences.theme()) }
-    var route by remember {
-        mutableStateOf(if (preferences.hasCompletedOnboarding()) AppRoute.Library else AppRoute.Welcome)
+    val finishOnboarding: () -> Unit = {
+        preferences.completeOnboarding()
+        navController.navigate(AppDestination.Library.route) {
+            popUpTo(AppDestination.Welcome.route) { inclusive = true }
+            launchSingleTop = true
+        }
     }
 
     val baseConfiguration = LocalConfiguration.current
@@ -113,11 +139,6 @@ fun PokeAndScanApp(preferences: AppPreferences) {
         }
     }
 
-    val backRoute = route.backRoute
-    BackHandler(enabled = backRoute != null) {
-        backRoute?.let { route = it }
-    }
-
     PokeAndScanTheme(darkTheme = darkTheme) {
         CompositionLocalProvider(
             LocalContext provides localizedContext,
@@ -128,13 +149,13 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                     TopAppBar(
                         title = {
                             Text(
-                                text = stringResource(route.titleRes),
+                                text = stringResource(currentDestination.titleRes),
                                 fontWeight = FontWeight.SemiBold
                             )
                         },
                         actions = {
-                            if (route == AppRoute.Library) {
-                                TextButton(onClick = { route = AppRoute.Settings }) {
+                            if (currentDestination == AppDestination.Library) {
+                                TextButton(onClick = { navController.navigate(AppDestination.Settings.route) }) {
                                     Text(stringResource(R.string.settings_action))
                                 }
                             }
@@ -142,67 +163,65 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                     )
                 }
             ) { contentPadding ->
-                when (route) {
-                    AppRoute.Welcome -> WelcomeScreen(
-                        language = language,
-                        modifier = Modifier.padding(contentPadding),
-                        onLanguageSelected = {
-                            language = it
-                            preferences.saveLanguage(it)
-                        },
-                        onContinue = {
-                            preferences.saveLanguage(language)
-                            route = AppRoute.CaptureExplanation
-                        },
-                        onSkip = {
-                            preferences.saveLanguage(language)
-                            preferences.completeOnboarding()
-                            route = AppRoute.Library
-                        }
-                    )
-                    AppRoute.CaptureExplanation -> CaptureExplanationScreen(
-                        modifier = Modifier.padding(contentPadding),
-                        onBack = { route = checkNotNull(route.backRoute) },
-                        onContinue = { route = AppRoute.OnboardingPreparation }
-                    )
-                    AppRoute.OnboardingPreparation -> PreparationScreen(
-                        modifier = Modifier.padding(contentPadding),
-                        onBack = { route = checkNotNull(route.backRoute) },
-                        onContinue = {
-                            preferences.completeOnboarding()
-                            route = AppRoute.Library
-                        }
-                    )
-                    AppRoute.Library -> {
-                        LibraryScreen(
-                            modifier = Modifier.padding(contentPadding),
-                            onNewScan = { route = AppRoute.NewScan }
+                NavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                    modifier = Modifier.padding(contentPadding)
+                ) {
+                    composable(AppDestination.Welcome.route) {
+                        WelcomeScreen(
+                            language = language,
+                            onLanguageSelected = {
+                                language = it
+                                preferences.saveLanguage(it)
+                            },
+                            onContinue = {
+                                preferences.saveLanguage(language)
+                                navController.navigate(AppDestination.CaptureExplanation.route)
+                            },
+                            onSkip = finishOnboarding
                         )
                     }
-                    AppRoute.NewScan -> NewScanScreen(
-                        modifier = Modifier.padding(contentPadding),
-                        onPreparation = { route = AppRoute.ScanPreparation }
-                    )
-                    AppRoute.ScanPreparation -> PreparationScreen(
-                        modifier = Modifier.padding(contentPadding),
-                        onBack = { route = checkNotNull(route.backRoute) },
-                        onContinue = { route = AppRoute.NewScan }
-                    )
-                    AppRoute.Settings -> SettingsScreen(
-                        language = language,
-                        theme = theme,
-                        appName = stringResource(R.string.app_name),
-                        appVersion = appVersion(LocalContext.current),
-                        modifier = Modifier.padding(contentPadding),
-                        onLanguageSelected = {
-                            preferences.saveLanguage(it)
-                            language = it
-                        },
-                        onThemeSelected = {
-                            preferences.saveTheme(it)
-                            theme = it
-                        }
-                    )
+                    composable(AppDestination.CaptureExplanation.route) {
+                        CaptureExplanationScreen(
+                            onBack = { navController.popBackStack() },
+                            onContinue = { navController.navigate(AppDestination.OnboardingPreparation.route) }
+                        )
+                    }
+                    composable(AppDestination.OnboardingPreparation.route) {
+                        PreparationScreen(
+                            onBack = { navController.popBackStack() },
+                            onContinue = finishOnboarding
+                        )
+                    }
+                    composable(AppDestination.Library.route) {
+                        LibraryScreen(onNewScan = { navController.navigate(AppDestination.NewScan.route) })
+                    }
+                    composable(AppDestination.NewScan.route) {
+                        NewScanScreen(onPreparation = { navController.navigate(AppDestination.ScanPreparation.route) })
+                    }
+                    composable(AppDestination.ScanPreparation.route) {
+                        PreparationScreen(
+                            onBack = { navController.popBackStack() },
+                            onContinue = { navController.popBackStack() }
+                        )
+                    }
+                    composable(AppDestination.Settings.route) {
+                        SettingsScreen(
+                            language = language,
+                            theme = theme,
+                            appName = stringResource(R.string.app_name),
+                            appVersion = appVersion(LocalContext.current),
+                            onLanguageSelected = {
+                                preferences.saveLanguage(it)
+                                language = it
+                            },
+                            onThemeSelected = {
+                                preferences.saveTheme(it)
+                                theme = it
+                            }
+                        )
+                    }
                 }
             }
         }

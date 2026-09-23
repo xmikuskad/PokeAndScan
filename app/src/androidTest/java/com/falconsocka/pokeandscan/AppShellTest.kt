@@ -9,16 +9,23 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
+import org.junit.runner.Description
+import org.junit.runners.model.Statement
 import java.util.Locale
 
 @RunWith(AndroidJUnit4::class)
 class AppShellTest {
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val testRule: RuleChain = RuleChain.outerRule(ClearAppPreferencesRule()).around(composeRule)
 
     @Test
     fun libraryOpensNewScanAndBackReturnsToLibrary() {
@@ -28,7 +35,7 @@ class AppShellTest {
         composeRule.onNodeWithText(appString(R.string.new_scan_action)).performClick()
         composeRule.onNodeWithText(appString(R.string.new_scan_placeholder)).assertIsDisplayed()
 
-        composeRule.activity.onBackPressedDispatcher.onBackPressed()
+        composeRule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithText(appString(R.string.library_title)).assertIsDisplayed()
     }
 
@@ -42,7 +49,6 @@ class AppShellTest {
         composeRule.onNodeWithText("Nastavenia").assertIsDisplayed()
 
         composeRule.activityRule.scenario.recreate()
-        composeRule.onNodeWithText(appString(R.string.settings_action)).performClick()
         composeRule.onNodeWithText(appString(R.string.settings_title)).assertIsDisplayed()
 
         composeRule.runOnIdle {
@@ -56,17 +62,12 @@ class AppShellTest {
 
     @Test
     fun firstRunPreparationCanBeReopenedFromNewScan() {
-        composeRule.activityRule.scenario.onActivity { activity ->
-            activity.getSharedPreferences("app_preferences", Context.MODE_PRIVATE).edit().clear().commit()
-        }
-        composeRule.activityRule.scenario.recreate()
-
         composeRule.onNodeWithText(appString(R.string.welcome_description)).assertIsDisplayed()
         composeRule.onNodeWithText(appString(R.string.language_slovak)).performClick()
         composeRule.onNodeWithText(appString(R.string.welcome_description)).assertIsDisplayed()
         composeRule.onNodeWithText(appString(R.string.action_continue)).performScrollTo().performClick()
         composeRule.onNodeWithText(appString(R.string.live_capture_title)).assertIsDisplayed()
-        composeRule.activity.onBackPressedDispatcher.onBackPressed()
+        composeRule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithText(appString(R.string.welcome_description)).assertIsDisplayed()
         composeRule.onNodeWithText(appString(R.string.action_continue)).performScrollTo().performClick()
         composeRule.onNodeWithText(appString(R.string.live_capture_title)).assertIsDisplayed()
@@ -82,7 +83,7 @@ class AppShellTest {
         composeRule.onNodeWithText(appString(R.string.new_scan_title)).assertIsDisplayed()
 
         composeRule.activityRule.scenario.recreate()
-        composeRule.onNodeWithText(appString(R.string.library_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.new_scan_title)).assertIsDisplayed()
     }
 
     private fun dismissFirstLaunchLanguageChoiceIfPresent() {
@@ -102,5 +103,18 @@ class AppShellTest {
             setLocale(Locale.forLanguageTag(language.languageTag))
         }
         return activity.createConfigurationContext(configuration).getString(resourceId)
+    }
+}
+
+private class ClearAppPreferencesRule : TestRule {
+    override fun apply(base: Statement, description: Description): Statement = object : Statement() {
+        override fun evaluate() {
+            InstrumentationRegistry.getInstrumentation().targetContext
+                .getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit()
+            base.evaluate()
+        }
     }
 }
