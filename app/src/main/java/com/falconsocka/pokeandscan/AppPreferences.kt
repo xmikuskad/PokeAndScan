@@ -25,8 +25,15 @@ fun initialLanguage(systemLanguageTag: String): AppLanguage =
 class AppPreferences(private val preferences: SharedPreferences) {
     private val languageKey = "app_language"
     private val themeKey = "theme_preference"
+    private val onboardingCompletedKey = "onboarding_completed"
 
     fun hasSavedLanguage(): Boolean = preferences.contains(languageKey)
+
+    fun hasCompletedOnboarding(): Boolean = preferences.getBoolean(onboardingCompletedKey, false)
+
+    fun completeOnboarding() {
+        preferences.edit().putBoolean(onboardingCompletedKey, true).apply()
+    }
 
     fun savedLanguage(): AppLanguage? =
         preferences.getString(languageKey, null)

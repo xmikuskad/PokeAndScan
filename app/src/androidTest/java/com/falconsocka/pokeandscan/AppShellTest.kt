@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -53,11 +54,38 @@ class AppShellTest {
         }
     }
 
+    @Test
+    fun firstRunPreparationCanBeReopenedFromNewScan() {
+        composeRule.activityRule.scenario.onActivity { activity ->
+            activity.getSharedPreferences("app_preferences", Context.MODE_PRIVATE).edit().clear().commit()
+        }
+        composeRule.activityRule.scenario.recreate()
+
+        composeRule.onNodeWithText(appString(R.string.welcome_description)).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.language_slovak)).performClick()
+        composeRule.onNodeWithText(appString(R.string.welcome_description)).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.action_continue)).performScrollTo().performClick()
+        composeRule.onNodeWithText(appString(R.string.live_capture_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.action_continue)).performClick()
+        composeRule.onNodeWithText(appString(R.string.reference_setup_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.action_continue)).performScrollTo().performClick()
+
+        composeRule.onNodeWithText(appString(R.string.library_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.new_scan_action)).performClick()
+        composeRule.onNodeWithText(appString(R.string.review_preparation)).performClick()
+        composeRule.onNodeWithText(appString(R.string.traversal_title)).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.action_back)).performScrollTo().performClick()
+        composeRule.onNodeWithText(appString(R.string.new_scan_title)).assertIsDisplayed()
+
+        composeRule.activityRule.scenario.recreate()
+        composeRule.onNodeWithText(appString(R.string.library_title)).assertIsDisplayed()
+    }
+
     private fun dismissFirstLaunchLanguageChoiceIfPresent() {
-        val continueEnglish = composeRule.onAllNodesWithText("Continue").fetchSemanticsNodes()
-        if (continueEnglish.isNotEmpty()) composeRule.onNodeWithText("Continue").performClick()
-        else if (composeRule.onAllNodesWithText("Pokračovať").fetchSemanticsNodes().isNotEmpty()) {
-            composeRule.onNodeWithText("Pokračovať").performClick()
+        if (composeRule.onAllNodesWithText(appString(R.string.welcome_description)).fetchSemanticsNodes().isNotEmpty()) {
+            repeat(3) {
+                composeRule.onNodeWithText(appString(R.string.action_continue)).performScrollTo().performClick()
+            }
         }
     }
 

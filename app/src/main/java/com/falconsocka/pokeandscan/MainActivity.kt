@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.app.Activity
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -28,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -53,7 +55,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.falconsocka.pokeandscan.ui.theme.PokeAndScanTheme
 import java.util.Locale
@@ -69,18 +70,19 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class AppRoute { Library, NewScan, Settings }
+private enum class AppRoute { Onboarding, Library, NewScan, Preparation, Settings }
+private enum class OnboardingStep { Welcome, Capture, Preparation }
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun PokeAndScanApp(preferences: AppPreferences) {
-    val firstLaunch = remember { !preferences.hasSavedLanguage() }
+    val firstLaunch = remember { !preferences.hasCompletedOnboarding() }
     var language by remember {
         mutableStateOf(preferences.languageOrDefault())
     }
     var theme by remember { mutableStateOf(preferences.theme()) }
-    var route by remember { mutableStateOf(AppRoute.Library) }
-    var showLanguageChoice by remember { mutableStateOf(firstLaunch) }
+    var route by remember { mutableStateOf(if (firstLaunch) AppRoute.Onboarding else AppRoute.Library) }
+    var onboardingStep by remember { mutableStateOf(OnboardingStep.Welcome) }
 
     val baseConfiguration = LocalConfiguration.current
     val localizedConfiguration = remember(baseConfiguration, language) {
@@ -104,8 +106,16 @@ fun PokeAndScanApp(preferences: AppPreferences) {
         }
     }
 
-    BackHandler(enabled = route != AppRoute.Library) {
-        route = AppRoute.Library
+    BackHandler(enabled = route != AppRoute.Library && !(route == AppRoute.Onboarding && onboardingStep == OnboardingStep.Welcome)) {
+        when (route) {
+            AppRoute.Onboarding -> onboardingStep = when (onboardingStep) {
+                OnboardingStep.Welcome -> OnboardingStep.Welcome
+                OnboardingStep.Capture -> OnboardingStep.Welcome
+                OnboardingStep.Preparation -> OnboardingStep.Capture
+            }
+            AppRoute.Preparation -> route = AppRoute.NewScan
+            else -> route = AppRoute.Library
+        }
     }
 
     PokeAndScanTheme(darkTheme = darkTheme) {
@@ -119,19 +129,21 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         title = {
                             Text(
                                 text = when (route) {
-                                    AppRoute.Library -> if (showLanguageChoice) {
-                                        stringResource(R.string.welcome_title)
-                                    } else {
-                                        stringResource(R.string.library_title)
+                                    AppRoute.Onboarding -> when (onboardingStep) {
+                                        OnboardingStep.Welcome -> stringResource(R.string.welcome_title)
+                                        OnboardingStep.Capture -> stringResource(R.string.capture_explanation_title)
+                                        OnboardingStep.Preparation -> stringResource(R.string.preparation_title)
                                     }
+                                    AppRoute.Library -> stringResource(R.string.library_title)
                                     AppRoute.NewScan -> stringResource(R.string.new_scan_title)
+                                    AppRoute.Preparation -> stringResource(R.string.preparation_title)
                                     AppRoute.Settings -> stringResource(R.string.settings_title)
                                 },
                                 fontWeight = FontWeight.SemiBold
                             )
                         },
                         actions = {
-                            if (route == AppRoute.Library && !showLanguageChoice) {
+                            if (route == AppRoute.Library) {
                                 TextButton(onClick = { route = AppRoute.Settings }) {
                                     Text(stringResource(R.string.settings_action))
                                 }
@@ -141,26 +153,52 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                 }
             ) { contentPadding ->
                 when (route) {
-                    AppRoute.Library -> if (showLanguageChoice) {
-                        FirstLaunchScreen(
+                    AppRoute.Onboarding -> when (onboardingStep) {
+                        OnboardingStep.Welcome -> WelcomeScreen(
                             language = language,
                             modifier = Modifier.padding(contentPadding),
-                            onLanguageSelected = { language = it },
+                            onLanguageSelected = {
+                                language = it
+                                preferences.saveLanguage(it)
+                            },
                             onContinue = {
                                 preferences.saveLanguage(language)
-                                showLanguageChoice = false
+                                onboardingStep = OnboardingStep.Capture
+                            },
+                            onSkip = {
+                                preferences.saveLanguage(language)
+                                preferences.completeOnboarding()
+                                route = AppRoute.Library
                             }
                         )
-                    } else {
+                        OnboardingStep.Capture -> CaptureExplanationScreen(
+                            modifier = Modifier.padding(contentPadding),
+                            onBack = { onboardingStep = OnboardingStep.Welcome },
+                            onContinue = { onboardingStep = OnboardingStep.Preparation }
+                        )
+                        OnboardingStep.Preparation -> PreparationScreen(
+                            modifier = Modifier.padding(contentPadding),
+                            onBack = { onboardingStep = OnboardingStep.Capture },
+                            onContinue = {
+                                preferences.completeOnboarding()
+                                route = AppRoute.Library
+                            }
+                        )
+                    }
+                    AppRoute.Library -> {
                         LibraryScreen(
                             modifier = Modifier.padding(contentPadding),
                             onNewScan = { route = AppRoute.NewScan }
                         )
                     }
-                    AppRoute.NewScan -> PlaceholderScreen(
-                        title = stringResource(R.string.new_scan_title),
-                        message = stringResource(R.string.new_scan_placeholder),
-                        modifier = Modifier.padding(contentPadding)
+                    AppRoute.NewScan -> NewScanScreen(
+                        modifier = Modifier.padding(contentPadding),
+                        onPreparation = { route = AppRoute.Preparation }
+                    )
+                    AppRoute.Preparation -> PreparationScreen(
+                        modifier = Modifier.padding(contentPadding),
+                        onBack = { route = AppRoute.NewScan },
+                        onContinue = { route = AppRoute.NewScan }
                     )
                     AppRoute.Settings -> SettingsScreen(
                         language = language,
@@ -184,11 +222,12 @@ fun PokeAndScanApp(preferences: AppPreferences) {
 }
 
 @Composable
-private fun FirstLaunchScreen(
+private fun WelcomeScreen(
     language: AppLanguage,
     modifier: Modifier = Modifier,
     onLanguageSelected: (AppLanguage) -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onSkip: () -> Unit
 ) {
     Column(
         modifier = modifier
@@ -202,6 +241,10 @@ private fun FirstLaunchScreen(
             text = stringResource(R.string.welcome_description),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = stringResource(R.string.welcome_details),
+            style = MaterialTheme.typography.bodyLarge
         )
         SettingsGroup(title = stringResource(R.string.language_setting)) {
             LanguageChoiceRow(
@@ -223,6 +266,94 @@ private fun FirstLaunchScreen(
         ) {
             Text(stringResource(R.string.action_continue), fontWeight = FontWeight.SemiBold)
         }
+        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.skip_introduction))
+        }
+    }
+}
+
+@Composable
+private fun CaptureExplanationScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
+) {
+    Column(
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(stringResource(R.string.capture_explanation_body), style = MaterialTheme.typography.bodyLarge)
+        GuidanceSection(stringResource(R.string.live_capture_title), stringResource(R.string.live_capture_description))
+        GuidanceSection(stringResource(R.string.mp4_import_title), stringResource(R.string.mp4_import_description))
+        Text(stringResource(R.string.manual_navigation_reminder), style = MaterialTheme.typography.bodyLarge)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_back)) }
+            Button(onClick = onContinue, modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)) {
+                Text(stringResource(R.string.action_continue))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreparationScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
+) {
+    val context = LocalContext.current
+    Column(
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(stringResource(R.string.preparation_intro), style = MaterialTheme.typography.bodyLarge)
+        GuidanceSection(stringResource(R.string.reference_setup_title), stringResource(R.string.reference_setup_details))
+        GuidanceSection(stringResource(R.string.scan_scope_title), stringResource(R.string.scan_scope_details))
+        GuidanceSection(stringResource(R.string.nickname_warning_title), stringResource(R.string.nickname_warning_details))
+        GuidanceSection(stringResource(R.string.traversal_title), stringResource(R.string.traversal_details))
+        OutlinedButton(
+            onClick = {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage("com.nianticlabs.pokemongo")
+                if (launchIntent != null) context.startActivity(launchIntent)
+                else Toast.makeText(context, context.getString(R.string.pokemon_go_not_found), Toast.LENGTH_SHORT).show()
+            },
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+        ) {
+            Text(stringResource(R.string.open_pokemon_go))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_back)) }
+            Button(onClick = onContinue, modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)) {
+                Text(stringResource(R.string.action_continue))
+            }
+        }
+    }
+}
+
+@Composable
+private fun NewScanScreen(modifier: Modifier = Modifier, onPreparation: () -> Unit) {
+    Column(
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(stringResource(R.string.new_scan_placeholder), style = MaterialTheme.typography.bodyLarge)
+        Button(
+            onClick = onPreparation,
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+        ) {
+            Text(stringResource(R.string.review_preparation))
+        }
+    }
+}
+
+@Composable
+private fun GuidanceSection(title: String, body: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -257,20 +388,6 @@ private fun LibraryScreen(modifier: Modifier = Modifier, onNewScan: () -> Unit) 
         ) {
             Text(stringResource(R.string.new_scan_action), fontWeight = FontWeight.SemiBold)
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(title: String, message: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-        Text(message, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
