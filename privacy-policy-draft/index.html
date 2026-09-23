@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Privacy information for PokeAndScan, an independent Android companion app.">
+    <title>PokeAndScan Privacy Policy</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.65; }
+      body { max-width: 52rem; margin: 0 auto; padding: 1.25rem; }
+      nav { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0 2rem; }
+      main { padding-bottom: 2rem; }
+      h1, h2 { line-height: 1.25; }
+      section { scroll-margin-top: 1rem; }
+      a { text-underline-offset: .18em; }
+      .updated { color: color-mix(in srgb, currentColor 72%, transparent); }
+      @media (min-width: 48rem) { body { padding: 2.5rem; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>PokeAndScan Privacy Policy</h1>
+      <p>Published by FalconSocka. PokeAndScan is an independent Android companion. It is not an official Pokémon GO or Niantic service and is not affiliated with or endorsed by them.</p>
+      <p class="updated"><strong>Last updated:</strong> 23 September 2026</p>
+      <nav aria-label="Choose language">
+        <a href="#english" lang="en">English</a>
+        <a href="#slovak" lang="sk">Slovenčina</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="english" lang="en">
+        <h2>English</h2>
+        <p>This page describes the current app and the planned MVP scanning features. The current app build is an early scaffold: it stores your language, appearance, and introduction-completion preferences on your device. Scanning, review, and export are not available in this build. The sections below describe how those features are designed to work when they are released.</p>
+
+        <h3>On-device data and processing</h3>
+        <p>The planned MVP processes user-selected game-screen content on your Android device. Recognition is local and offline. PokeAndScan does not require an account or a PokeAndScan backend, does not use cloud OCR, and does not upload captured screens.</p>
+        <p>When scanning is available, the app will handle scan and snapshot metadata; recognized or manually entered Pokémon fields; review and correction history; and evidence crops needed to review results. Clean records keep a minimal representative appraisal crop. Uncertain, partial, corrected, or nickname-related fields may keep relevant field crops. A missed appraisal event may keep a transition crop. Non-game frames are classified in memory and discarded; they are not retained as images. The full source recording is not copied or retained by default.</p>
+
+        <h3>Screen capture and selected recordings</h3>
+        <p>Live capture will start only after you choose it and grant Android's screen-capture consent. PokeAndScan does not control Pokémon GO, tap or swipe for you, or capture microphone or system audio. On Android versions that require it, notification permission is requested when you start a live scan, not during setup. A foreground-service notification is used for background processing; notification permission is not requested solely for MP4 processing.</p>
+        <p>For an MP4 scan, you choose a recording using Android's file picker or share flow. The app processes its content URI without copying the whole video by default and temporarily keeps access only while processing or while an unfinished scan may need recovery. Audio tracks are ignored. Releasing access does not delete or modify your original recording.</p>
+
+        <h3>Storage, backup, and deletion</h3>
+        <p>App preferences are stored on the device. The planned MVP keeps snapshots, review data, and evidence in app-managed local storage. Deleting a snapshot removes its app-owned records, review data, and evidence, but does not delete a source MP4 stored outside the app. The app does not provide a delete-all-data command; to clear all app data, use Android Settings.</p>
+        <p>In the current build, Android is allowed to back up app data under its system backup settings. The planned MVP is intended to exclude all PokeAndScan app data from Android Auto Backup and device-to-device transfer; that protection will apply only after it is implemented and verified.</p>
+
+        <h3>Exports</h3>
+        <p>When available, CSV and JSON exports will be created only when you ask for them. You can save or share an export outside app-managed storage. PokeAndScan cannot delete or control copies saved or shared elsewhere. These exports are not a full backup of snapshots, evidence, or review history.</p>
+
+        <h3>Contact</h3>
+        <p>For privacy questions, contact FalconSocka at <a id="privacy-email">falconsockar [at] gmail [dot] com</a>.</p>
+      </section>
+
+      <hr>
+
+      <section id="slovak" lang="sk">
+        <h2>Slovenčina</h2>
+        <p>Prevádzkovateľom aplikácie PokeAndScan je FalconSocka. PokeAndScan je nezávislá sprievodná aplikácia pre Android. Nie je oficiálnou službou Pokémon GO ani spoločnosti Niantic a nie je s nimi prepojená ani nimi podporovaná.</p>
+        <p>Táto stránka opisuje súčasnú aplikáciu aj plánované funkcie skenovania v MVP. Aktuálna verzia je včasná kostra aplikácie: v zariadení ukladá nastavenie jazyka, vzhľadu a dokončenia úvodu. Skenovanie, kontrola výsledkov ani export v tejto verzii ešte nie sú dostupné. Nasledujúce časti opisujú plánované správanie po ich vydaní.</p>
+
+        <h3>Údaje a spracovanie v zariadení</h3>
+        <p>Plánované MVP bude spracúvať obsah obrazovky hry, ktorý vyberiete, priamo vo svojom zariadení Android. Rozpoznávanie bude prebiehať lokálne a offline. Aplikácia nebude vyžadovať účet ani vlastný server PokeAndScan, nebude používať OCR v cloude a nebude odosielať zachytené obrazovky.</p>
+        <p>Po sprístupnení skenovania bude aplikácia pracovať s metadátami skenov a snímok, rozpoznanými alebo ručne zadanými údajmi o Pokémonoch, históriou kontroly a opráv a výrezmi potrebnými na kontrolu výsledkov. Pri správne rozpoznaných záznamoch sa uloží minimálny reprezentatívny výrez obrazovky ocenenia. Pri neistých, neúplných alebo opravených údajoch či prezývkach sa môžu uložiť príslušné výrezy. Pri vynechanej obrazovke ocenenia sa môže uložiť výrez prechodu. Obrazovky mimo hry sa vyhodnotia v pamäti a zahodia; neukladajú sa ako obrázky. Celý zdrojový záznam obrazovky sa predvolene nekopíruje ani neuchováva.</p>
+
+        <h3>Snímanie obrazovky a vybrané záznamy</h3>
+        <p>Živé snímanie sa spustí až po vašom výbere a udelení súhlasu so snímaním obrazovky v Androide. PokeAndScan neovláda Pokémon GO, neťuká ani neposúva obrazovku za vás a nesníma mikrofón ani systémový zvuk. Vo verziách Androidu, ktoré to vyžadujú, aplikácia požiada o povolenie upozornení pri spustení živého skenu, nie počas úvodného nastavenia. Pri spracovaní na pozadí sa použije upozornenie služby; o povolenie upozornení nepožiada výhradne kvôli spracovaniu MP4.</p>
+        <p>Pri skene MP4 vyberiete záznam pomocou výberu súborov alebo zdieľania v Androide. Aplikácia spracuje jeho URI obsahu a predvolene nekopíruje celé video. Prístup si dočasne ponechá iba počas spracovania alebo kým môže byť potrebná obnova nedokončeného skenu. Zvukové stopy ignoruje. Uvoľnenie prístupu neodstráni ani nezmení pôvodný záznam.</p>
+
+        <h3>Ukladanie, zálohovanie a odstránenie</h3>
+        <p>Nastavenia aplikácie sa ukladajú v zariadení. Podľa plánu pre MVP budú snímky, údaje kontroly a dôkazy uložené lokálne v priestore spravovanom aplikáciou. Odstránením snímky sa odstránia jej záznamy, údaje kontroly a dôkazy spravované aplikáciou, nie však zdrojový súbor MP4 uložený mimo aplikácie. Aplikácia neponúka príkaz na vymazanie všetkých údajov; na vymazanie všetkých údajov aplikácie použite Nastavenia Androidu.</p>
+        <p>V aktuálnej verzii môže Android zálohovať údaje aplikácie podľa systémových nastavení zálohovania. Plánované MVP má vylúčiť všetky údaje PokeAndScan z automatického zálohovania Androidu a prenosu medzi zariadeniami; táto ochrana bude platiť až po implementácii a overení.</p>
+
+        <h3>Exporty</h3>
+        <p>Po sprístupnení budú exporty CSV a JSON vytvárané iba na váš pokyn. Export môžete uložiť alebo zdieľať mimo úložiska spravovaného aplikáciou. PokeAndScan nemôže odstrániť ani ovládať kópie uložené alebo zdieľané inde. Tieto exporty nie sú úplnou zálohou snímok, dôkazov ani histórie kontroly.</p>
+
+        <h3>Kontakt</h3>
+        <p>V prípade otázok o súkromí kontaktujte FalconSocka na adrese <a id="privacy-email-sk">falconsockar [at] gmail [dot] com</a>.</p>
+      </section>
+    </main>
+
+    <script>
+      const email = ['falconsockar', 'gmail.com'].join('@');
+      for (const id of ['privacy-email', 'privacy-email-sk']) {
+        const link = document.getElementById(id);
+        link.href = `mailto:${email}`;
+        link.textContent = email;
+      }
+    </script>
+  </body>
+</html>
