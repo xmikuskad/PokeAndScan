@@ -70,19 +70,26 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class AppRoute { Onboarding, Library, NewScan, Preparation, Settings }
-private enum class OnboardingStep { Welcome, Capture, Preparation }
+private sealed class AppRoute(val titleRes: Int, val backRoute: AppRoute?) {
+    data object Welcome : AppRoute(R.string.welcome_title, null)
+    data object CaptureExplanation : AppRoute(R.string.capture_explanation_title, Welcome)
+    data object OnboardingPreparation : AppRoute(R.string.preparation_title, CaptureExplanation)
+    data object Library : AppRoute(R.string.library_title, null)
+    data object NewScan : AppRoute(R.string.new_scan_title, Library)
+    data object ScanPreparation : AppRoute(R.string.preparation_title, NewScan)
+    data object Settings : AppRoute(R.string.settings_title, Library)
+}
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun PokeAndScanApp(preferences: AppPreferences) {
-    val firstLaunch = remember { !preferences.hasCompletedOnboarding() }
     var language by remember {
         mutableStateOf(preferences.languageOrDefault())
     }
     var theme by remember { mutableStateOf(preferences.theme()) }
-    var route by remember { mutableStateOf(if (firstLaunch) AppRoute.Onboarding else AppRoute.Library) }
-    var onboardingStep by remember { mutableStateOf(OnboardingStep.Welcome) }
+    var route by remember {
+        mutableStateOf(if (preferences.hasCompletedOnboarding()) AppRoute.Library else AppRoute.Welcome)
+    }
 
     val baseConfiguration = LocalConfiguration.current
     val localizedConfiguration = remember(baseConfiguration, language) {
@@ -106,16 +113,9 @@ fun PokeAndScanApp(preferences: AppPreferences) {
         }
     }
 
-    BackHandler(enabled = route != AppRoute.Library && !(route == AppRoute.Onboarding && onboardingStep == OnboardingStep.Welcome)) {
-        when (route) {
-            AppRoute.Onboarding -> onboardingStep = when (onboardingStep) {
-                OnboardingStep.Welcome -> OnboardingStep.Welcome
-                OnboardingStep.Capture -> OnboardingStep.Welcome
-                OnboardingStep.Preparation -> OnboardingStep.Capture
-            }
-            AppRoute.Preparation -> route = AppRoute.NewScan
-            else -> route = AppRoute.Library
-        }
+    val backRoute = route.backRoute
+    BackHandler(enabled = backRoute != null) {
+        backRoute?.let { route = it }
     }
 
     PokeAndScanTheme(darkTheme = darkTheme) {
@@ -128,17 +128,7 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                     TopAppBar(
                         title = {
                             Text(
-                                text = when (route) {
-                                    AppRoute.Onboarding -> when (onboardingStep) {
-                                        OnboardingStep.Welcome -> stringResource(R.string.welcome_title)
-                                        OnboardingStep.Capture -> stringResource(R.string.capture_explanation_title)
-                                        OnboardingStep.Preparation -> stringResource(R.string.preparation_title)
-                                    }
-                                    AppRoute.Library -> stringResource(R.string.library_title)
-                                    AppRoute.NewScan -> stringResource(R.string.new_scan_title)
-                                    AppRoute.Preparation -> stringResource(R.string.preparation_title)
-                                    AppRoute.Settings -> stringResource(R.string.settings_title)
-                                },
+                                text = stringResource(route.titleRes),
                                 fontWeight = FontWeight.SemiBold
                             )
                         },
@@ -153,38 +143,36 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                 }
             ) { contentPadding ->
                 when (route) {
-                    AppRoute.Onboarding -> when (onboardingStep) {
-                        OnboardingStep.Welcome -> WelcomeScreen(
-                            language = language,
-                            modifier = Modifier.padding(contentPadding),
-                            onLanguageSelected = {
-                                language = it
-                                preferences.saveLanguage(it)
-                            },
-                            onContinue = {
-                                preferences.saveLanguage(language)
-                                onboardingStep = OnboardingStep.Capture
-                            },
-                            onSkip = {
-                                preferences.saveLanguage(language)
-                                preferences.completeOnboarding()
-                                route = AppRoute.Library
-                            }
-                        )
-                        OnboardingStep.Capture -> CaptureExplanationScreen(
-                            modifier = Modifier.padding(contentPadding),
-                            onBack = { onboardingStep = OnboardingStep.Welcome },
-                            onContinue = { onboardingStep = OnboardingStep.Preparation }
-                        )
-                        OnboardingStep.Preparation -> PreparationScreen(
-                            modifier = Modifier.padding(contentPadding),
-                            onBack = { onboardingStep = OnboardingStep.Capture },
-                            onContinue = {
-                                preferences.completeOnboarding()
-                                route = AppRoute.Library
-                            }
-                        )
-                    }
+                    AppRoute.Welcome -> WelcomeScreen(
+                        language = language,
+                        modifier = Modifier.padding(contentPadding),
+                        onLanguageSelected = {
+                            language = it
+                            preferences.saveLanguage(it)
+                        },
+                        onContinue = {
+                            preferences.saveLanguage(language)
+                            route = AppRoute.CaptureExplanation
+                        },
+                        onSkip = {
+                            preferences.saveLanguage(language)
+                            preferences.completeOnboarding()
+                            route = AppRoute.Library
+                        }
+                    )
+                    AppRoute.CaptureExplanation -> CaptureExplanationScreen(
+                        modifier = Modifier.padding(contentPadding),
+                        onBack = { route = checkNotNull(route.backRoute) },
+                        onContinue = { route = AppRoute.OnboardingPreparation }
+                    )
+                    AppRoute.OnboardingPreparation -> PreparationScreen(
+                        modifier = Modifier.padding(contentPadding),
+                        onBack = { route = checkNotNull(route.backRoute) },
+                        onContinue = {
+                            preferences.completeOnboarding()
+                            route = AppRoute.Library
+                        }
+                    )
                     AppRoute.Library -> {
                         LibraryScreen(
                             modifier = Modifier.padding(contentPadding),
@@ -193,11 +181,11 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                     }
                     AppRoute.NewScan -> NewScanScreen(
                         modifier = Modifier.padding(contentPadding),
-                        onPreparation = { route = AppRoute.Preparation }
+                        onPreparation = { route = AppRoute.ScanPreparation }
                     )
-                    AppRoute.Preparation -> PreparationScreen(
+                    AppRoute.ScanPreparation -> PreparationScreen(
                         modifier = Modifier.padding(contentPadding),
-                        onBack = { route = AppRoute.NewScan },
+                        onBack = { route = checkNotNull(route.backRoute) },
                         onContinue = { route = AppRoute.NewScan }
                     )
                     AppRoute.Settings -> SettingsScreen(
