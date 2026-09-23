@@ -16,7 +16,7 @@
     <string name="theme_dark">Tmavý</string>
     <string name="privacy_title">Súkromie</string>
     <string name="privacy_action">Informácie o súkromí</string>
-    <string name="privacy_unavailable">Stránka o súkromí zatiaľ nie je dostupná.</string>
+    <string name="privacy_description">Prečítajte si, ako PokeAndScan pracuje s vašimi údajmi.</string>
     <string name="version_footer">%1$s · Verzia %2$s</string>
     <string name="welcome_title">Vitajte</string>
     <string name="welcome_description">Lokálny pomocník na vytvorenie prehľadného záznamu zbierky Pokémonov, ktorý môžete skontrolovať.</string>

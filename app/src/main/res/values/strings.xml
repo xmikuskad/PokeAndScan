@@ -16,7 +16,7 @@
     <string name="theme_dark">Dark</string>
     <string name="privacy_title">Privacy</string>
     <string name="privacy_action">Privacy information</string>
-    <string name="privacy_unavailable">The privacy page is not available yet.</string>
+    <string name="privacy_description">Read how PokeAndScan handles your data.</string>
     <string name="version_footer">%1$s · Version %2$s</string>
     <string name="welcome_title">Welcome</string>
     <string name="welcome_description">A local companion for making a clear, reviewable record of your Pokémon collection.</string>

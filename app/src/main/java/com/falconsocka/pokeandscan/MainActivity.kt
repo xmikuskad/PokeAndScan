@@ -1,8 +1,10 @@
 package com.falconsocka.pokeandscan
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.app.Activity
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -100,6 +102,7 @@ private sealed class AppDestination(val route: String, val titleRes: Int) {
 @OptIn(ExperimentalMaterial3Api::class)
 fun PokeAndScanApp(preferences: AppPreferences) {
     val navController = rememberNavController()
+    val context = LocalContext.current
     val startDestination = remember {
         if (preferences.hasCompletedOnboarding()) AppDestination.Library.route else AppDestination.Welcome.route
     }
@@ -211,7 +214,10 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                             language = language,
                             theme = theme,
                             appName = stringResource(R.string.app_name),
-                            appVersion = appVersion(LocalContext.current),
+                            appVersion = appVersion(context),
+                            onPrivacyInformation = {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(privacyPolicyUrl(language))))
+                            },
                             onLanguageSelected = {
                                 preferences.saveLanguage(it)
                                 language = it
@@ -437,13 +443,14 @@ private fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = 56.dp)
+                    .clickable(onClick = onPrivacyInformation)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.privacy_action), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        stringResource(R.string.privacy_unavailable),
+                        stringResource(R.string.privacy_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
