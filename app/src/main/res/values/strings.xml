@@ -19,7 +19,7 @@
     <string name="privacy_action">Privacy information</string>
     <string name="privacy_unavailable">The privacy page is not available yet.</string>
     <string name="version_footer">%1$s · Version %2$s</string>
-    <string name="choose_language_title">Choose your language</string>
-    <string name="choose_language_description">You can change this any time in Settings.</string>
-    <string name="action_close">Close</string>
+    <string name="welcome_title">Welcome</string>
+    <string name="welcome_description">Choose the language for PokeAndScan. You can change it any time in Settings.</string>
+    <string name="action_continue">Continue</string>
 </resources>

@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -77,12 +76,11 @@ private enum class AppRoute { Library, NewScan, Settings }
 fun PokeAndScanApp(preferences: AppPreferences) {
     val firstLaunch = remember { !preferences.hasSavedLanguage() }
     var language by remember {
-        mutableStateOf(preferences.languageOrDefault().also(preferences::saveLanguage))
+        mutableStateOf(preferences.languageOrDefault())
     }
     var theme by remember { mutableStateOf(preferences.theme()) }
     var route by remember { mutableStateOf(AppRoute.Library) }
     var showLanguageChoice by remember { mutableStateOf(firstLaunch) }
-    var showPrivacyUnavailable by remember { mutableStateOf(false) }
 
     val baseConfiguration = LocalConfiguration.current
     val localizedConfiguration = remember(baseConfiguration, language) {
@@ -121,7 +119,11 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         title = {
                             Text(
                                 text = when (route) {
-                                    AppRoute.Library -> stringResource(R.string.library_title)
+                                    AppRoute.Library -> if (showLanguageChoice) {
+                                        stringResource(R.string.welcome_title)
+                                    } else {
+                                        stringResource(R.string.library_title)
+                                    }
                                     AppRoute.NewScan -> stringResource(R.string.new_scan_title)
                                     AppRoute.Settings -> stringResource(R.string.settings_title)
                                 },
@@ -129,7 +131,7 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                             )
                         },
                         actions = {
-                            if (route == AppRoute.Library) {
+                            if (route == AppRoute.Library && !showLanguageChoice) {
                                 TextButton(onClick = { route = AppRoute.Settings }) {
                                     Text(stringResource(R.string.settings_action))
                                 }
@@ -139,10 +141,22 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                 }
             ) { contentPadding ->
                 when (route) {
-                    AppRoute.Library -> LibraryScreen(
-                        modifier = Modifier.padding(contentPadding),
-                        onNewScan = { route = AppRoute.NewScan }
-                    )
+                    AppRoute.Library -> if (showLanguageChoice) {
+                        FirstLaunchScreen(
+                            language = language,
+                            modifier = Modifier.padding(contentPadding),
+                            onLanguageSelected = { language = it },
+                            onContinue = {
+                                preferences.saveLanguage(language)
+                                showLanguageChoice = false
+                            }
+                        )
+                    } else {
+                        LibraryScreen(
+                            modifier = Modifier.padding(contentPadding),
+                            onNewScan = { route = AppRoute.NewScan }
+                        )
+                    }
                     AppRoute.NewScan -> PlaceholderScreen(
                         title = stringResource(R.string.new_scan_title),
                         message = stringResource(R.string.new_scan_placeholder),
@@ -161,57 +175,53 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         onThemeSelected = {
                             preferences.saveTheme(it)
                             theme = it
-                        },
-                        onPrivacy = { showPrivacyUnavailable = true }
+                        }
                     )
                 }
             }
-            if (showLanguageChoice) {
-                AlertDialog(
-                    onDismissRequest = {
-                        preferences.saveLanguage(language)
-                        showLanguageChoice = false
-                    },
-                    title = { Text(stringResource(R.string.choose_language_title)) },
-                    text = {
-                        Column {
-                            Text(stringResource(R.string.choose_language_description))
-                            Spacer(Modifier.height(12.dp))
-                            LanguageChoiceRow(
-                                label = stringResource(R.string.language_english),
-                                selected = language == AppLanguage.English,
-                                onClick = {
-                                    preferences.saveLanguage(AppLanguage.English)
-                                    language = AppLanguage.English
-                                    showLanguageChoice = false
-                                }
-                            )
-                            LanguageChoiceRow(
-                                label = stringResource(R.string.language_slovak),
-                                selected = language == AppLanguage.Slovak,
-                                onClick = {
-                                    preferences.saveLanguage(AppLanguage.Slovak)
-                                    language = AppLanguage.Slovak
-                                    showLanguageChoice = false
-                                }
-                            )
-                        }
-                    },
-                    confirmButton = {}
-                )
-            }
-            if (showPrivacyUnavailable) {
-                AlertDialog(
-                    onDismissRequest = { showPrivacyUnavailable = false },
-                    title = { Text(stringResource(R.string.privacy_title)) },
-                    text = { Text(stringResource(R.string.privacy_unavailable)) },
-                    confirmButton = {
-                        TextButton(onClick = { showPrivacyUnavailable = false }) {
-                            Text(stringResource(R.string.action_close))
-                        }
-                    }
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun FirstLaunchScreen(
+    language: AppLanguage,
+    modifier: Modifier = Modifier,
+    onLanguageSelected: (AppLanguage) -> Unit,
+    onContinue: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = stringResource(R.string.welcome_description),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        SettingsGroup(title = stringResource(R.string.language_setting)) {
+            LanguageChoiceRow(
+                label = stringResource(R.string.language_english),
+                selected = language == AppLanguage.English,
+                onClick = { onLanguageSelected(AppLanguage.English) }
+            )
+            LanguageChoiceRow(
+                label = stringResource(R.string.language_slovak),
+                selected = language == AppLanguage.Slovak,
+                onClick = { onLanguageSelected(AppLanguage.Slovak) }
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(stringResource(R.string.action_continue), fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -272,8 +282,7 @@ private fun SettingsScreen(
     appVersion: String,
     modifier: Modifier = Modifier,
     onLanguageSelected: (AppLanguage) -> Unit,
-    onThemeSelected: (ThemePreference) -> Unit,
-    onPrivacy: () -> Unit
+    onThemeSelected: (ThemePreference) -> Unit
 ) {
     Column(
         modifier = modifier
@@ -304,7 +313,6 @@ private fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = 56.dp)
-                    .clickable(onClick = onPrivacy)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

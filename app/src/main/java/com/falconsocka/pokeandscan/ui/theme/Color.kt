@@ -25,3 +25,29 @@ val DarkRaisedSurface = Color(0xFF172033)
 val DarkOnSurface = Color(0xFFF8FAFC)
 val DarkOnSurfaceVariant = Color(0xFFCBD5E1)
 val DarkOutline = Color(0xFF334155)
+
+data class SemanticStatusColor(val foreground: Color, val container: Color)
+
+data class SemanticStatusPalette(
+    val ready: SemanticStatusColor,
+    val needsReview: SemanticStatusColor,
+    val partial: SemanticStatusColor,
+    val excluded: SemanticStatusColor,
+    val error: SemanticStatusColor
+)
+
+val LightStatusColors = SemanticStatusPalette(
+    ready = SemanticStatusColor(Color(0xFF15803D), Color(0xFFDCFCE7)),
+    needsReview = SemanticStatusColor(Color(0xFFB45309), Color(0xFFFEF3C7)),
+    partial = SemanticStatusColor(Color(0xFF1D4ED8), Color(0xFFDBEAFE)),
+    excluded = SemanticStatusColor(Color(0xFF475569), Color(0xFFE2E8F0)),
+    error = SemanticStatusColor(Color(0xFFBE123C), Color(0xFFFFE4E6))
+)
+
+val DarkStatusColors = SemanticStatusPalette(
+    ready = SemanticStatusColor(Color(0xFF4ADE80), Color(0xFF123522)),
+    needsReview = SemanticStatusColor(Color(0xFFFBBF24), Color(0xFF3B2A08)),
+    partial = SemanticStatusColor(Color(0xFF93C5FD), Color(0xFF153255)),
+    excluded = SemanticStatusColor(Color(0xFFCBD5E1), Color(0xFF243041)),
+    error = SemanticStatusColor(Color(0xFFFB7185), Color(0xFF4A1724))
+)

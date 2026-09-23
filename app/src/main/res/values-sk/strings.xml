@@ -19,7 +19,7 @@
     <string name="privacy_action">Informácie o súkromí</string>
     <string name="privacy_unavailable">Stránka o súkromí zatiaľ nie je dostupná.</string>
     <string name="version_footer">%1$s · Verzia %2$s</string>
-    <string name="choose_language_title">Vyberte jazyk</string>
-    <string name="choose_language_description">Jazyk môžete kedykoľvek zmeniť v nastaveniach.</string>
-    <string name="action_close">Zavrieť</string>
+    <string name="welcome_title">Vitajte</string>
+    <string name="welcome_description">Vyberte jazyk aplikácie PokeAndScan. Kedykoľvek ho môžete zmeniť v nastaveniach.</string>
+    <string name="action_continue">Pokračovať</string>
 </resources>

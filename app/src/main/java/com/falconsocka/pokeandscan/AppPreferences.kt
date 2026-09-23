@@ -28,10 +28,12 @@ class AppPreferences(private val preferences: SharedPreferences) {
 
     fun hasSavedLanguage(): Boolean = preferences.contains(languageKey)
 
-    fun languageOrDefault(systemLanguageTag: String = Locale.getDefault().toLanguageTag()): AppLanguage =
+    fun savedLanguage(): AppLanguage? =
         preferences.getString(languageKey, null)
             ?.let { runCatching { AppLanguage.valueOf(it) }.getOrNull() }
-            ?: initialLanguage(systemLanguageTag)
+
+    fun languageOrDefault(systemLanguageTag: String = Locale.getDefault().toLanguageTag()): AppLanguage =
+        savedLanguage() ?: initialLanguage(systemLanguageTag)
 
     fun saveLanguage(language: AppLanguage) {
         preferences.edit().putString(languageKey, language.name).apply()

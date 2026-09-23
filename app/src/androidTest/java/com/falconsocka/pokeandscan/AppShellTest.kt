@@ -1,13 +1,13 @@
 package com.falconsocka.pokeandscan
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import android.content.res.Configuration
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -40,6 +40,10 @@ class AppShellTest {
         composeRule.onNodeWithText("Slovenčina").performClick()
         composeRule.onNodeWithText("Nastavenia").assertIsDisplayed()
 
+        composeRule.activityRule.scenario.recreate()
+        composeRule.onNodeWithText(appString(R.string.settings_action)).performClick()
+        composeRule.onNodeWithText(appString(R.string.settings_title)).assertIsDisplayed()
+
         composeRule.runOnIdle {
             val preferences = AppPreferences(
                 composeRule.activity.getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
@@ -50,8 +54,10 @@ class AppShellTest {
     }
 
     private fun dismissFirstLaunchLanguageChoiceIfPresent() {
-        if (composeRule.onAllNodesWithText("English").fetchSemanticsNodes().isNotEmpty()) {
-            composeRule.onNodeWithText("English").performClick()
+        val continueEnglish = composeRule.onAllNodesWithText("Continue").fetchSemanticsNodes()
+        if (continueEnglish.isNotEmpty()) composeRule.onNodeWithText("Continue").performClick()
+        else if (composeRule.onAllNodesWithText("Pokračovať").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithText("Pokračovať").performClick()
         }
     }
 
