@@ -2,6 +2,7 @@ package com.falconsocka.pokeandscan.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 
 val LightPrimary = Color(0xFF0067D6)
 val LightOnPrimary = Color(0xFFFFFFFF)
@@ -56,3 +57,5 @@ val DarkStatusColors = SemanticStatusPalette(
     excluded = SemanticStatusColor(Color(0xFFCBD5E1), Color(0xFF243041)),
     error = SemanticStatusColor(Color(0xFFFB7185), Color(0xFF4A1724))
 )
+
+val LocalStatusColors = compositionLocalOf { LightStatusColors }

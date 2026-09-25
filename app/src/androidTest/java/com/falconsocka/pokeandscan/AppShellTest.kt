@@ -33,7 +33,7 @@ class AppShellTest {
 
         composeRule.onNodeWithText(appString(R.string.library_title)).assertIsDisplayed()
         composeRule.onNodeWithText(appString(R.string.new_scan_action)).performClick()
-        composeRule.onNodeWithText(appString(R.string.new_scan_placeholder)).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.new_scan_state_title)).assertIsDisplayed()
 
         composeRule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithText(appString(R.string.library_title)).assertIsDisplayed()

@@ -50,9 +50,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -71,12 +73,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.falconsocka.pokeandscan.ui.theme.PokeAndScanTheme
 import com.falconsocka.pokeandscan.ui.theme.focusOutline
 import java.util.Locale
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,18 +112,20 @@ private sealed class AppDestination(
         ScreenIllustrationPool.Preparation
     )
     data object Library : AppDestination("library", R.string.library_title, ScreenIllustrationPool.ScansEmpty)
+    data object SnapshotDetail : AppDestination("snapshot", R.string.library_title)
     data object NewScan : AppDestination("new-scan", R.string.new_scan_title, ScreenIllustrationPool.NewScan)
     data object ScanPreparation : AppDestination("scan-preparation", R.string.preparation_title, ScreenIllustrationPool.Preparation)
     data object Settings : AppDestination("settings", R.string.settings_title)
 
     companion object {
-        fun fromRoute(route: String?): AppDestination = when (route) {
-            Welcome.route -> Welcome
-            CaptureExplanation.route -> CaptureExplanation
-            OnboardingPreparation.route -> OnboardingPreparation
-            NewScan.route -> NewScan
-            ScanPreparation.route -> ScanPreparation
-            Settings.route -> Settings
+        fun fromRoute(route: String?): AppDestination = when {
+            route == SnapshotDetail.route || route == "${SnapshotDetail.route}/{snapshotId}" || route?.startsWith("${SnapshotDetail.route}/") == true -> SnapshotDetail
+            route == Welcome.route -> Welcome
+            route == CaptureExplanation.route -> CaptureExplanation
+            route == OnboardingPreparation.route -> OnboardingPreparation
+            route == NewScan.route -> NewScan
+            route == ScanPreparation.route -> ScanPreparation
+            route == Settings.route -> Settings
             else -> Library
         }
     }
@@ -133,11 +141,34 @@ private enum class CaptureSource {
 fun PokeAndScanApp(preferences: AppPreferences) {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val snapshotRepository = remember(context.applicationContext) {
+        SnapshotRepository.from(context.applicationContext)
+    }
+    var snapshots by remember { mutableStateOf<List<SnapshotSummary>?>(null) }
+    var snapshotsLoadError by remember { mutableStateOf(false) }
+    var snapshotRetryCount by remember { mutableStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
+    LaunchedEffect(snapshotRepository, snapshotRetryCount) {
+        snapshotsLoadError = false
+        try {
+            snapshotRepository.recoverPendingEvidenceDeletions()
+            snapshotRepository.observeSnapshots().collect {
+                snapshots = it
+                snapshotsLoadError = false
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            snapshotsLoadError = true
+        }
+    }
     val startDestination = remember {
         if (preferences.hasCompletedOnboarding()) AppDestination.Library.route else AppDestination.Welcome.route
     }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = AppDestination.fromRoute(backStackEntry?.destination?.route)
+    val activeSnapshotId = backStackEntry?.arguments?.getString("snapshotId")
+    val activeSnapshot = snapshots?.firstOrNull { it.id == activeSnapshotId }
     val illustrationSelector = remember { ScreenIllustrationSelector() }
     val selectedIllustration = remember(backStackEntry?.id, currentDestination.illustrationPool) {
         currentDestination.illustrationPool?.let(illustrationSelector::select)
@@ -189,7 +220,11 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                     TopAppBar(
                         title = {
                             Text(
-                                text = stringResource(currentDestination.titleRes),
+                                text = if (currentDestination == AppDestination.SnapshotDetail) {
+                                    activeSnapshot?.name ?: stringResource(R.string.snapshot_missing_title)
+                                } else {
+                                    stringResource(currentDestination.titleRes)
+                                },
                                 style = MaterialTheme.typography.headlineSmall
                             )
                         },
@@ -201,6 +236,14 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                                 ) {
                                     Text(stringResource(R.string.settings_action))
                                 }
+                            }
+                        },
+                        navigationIcon = {
+                            if (currentDestination == AppDestination.SnapshotDetail) {
+                                TextButton(
+                                    onClick = { navController.popBackStack() },
+                                    modifier = Modifier.focusOutline(RoundedCornerShape(12.dp))
+                                ) { Text(stringResource(R.string.action_back)) }
                             }
                         }
                     )
@@ -244,10 +287,73 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         )
                     }
                     composable(AppDestination.Library.route) {
-                        LibraryScreen(
+                        SnapshotLibraryScreen(
                             illustrationRes = illustrationResource
                                 ?: ScreenIllustrationPool.ScansEmpty.options.first().resourceFor(darkTheme),
-                            onNewScan = { navController.navigate(AppDestination.NewScan.route) }
+                            snapshots = snapshots,
+                            loadingError = snapshotsLoadError,
+                            onRetry = { snapshotRetryCount++ },
+                            onNewScan = { navController.navigate(AppDestination.NewScan.route) },
+                            onOpenSnapshot = { id -> navController.navigate("${AppDestination.SnapshotDetail.route}/$id") }
+                        )
+                    }
+                    composable(
+                        route = "${AppDestination.SnapshotDetail.route}/{snapshotId}",
+                        arguments = listOf(navArgument("snapshotId") { type = NavType.StringType })
+                    ) { entry ->
+                        val snapshotId = entry.arguments?.getString("snapshotId")
+                        val snapshot = snapshots?.firstOrNull { it.id == snapshotId }
+                        val detail = snapshot?.let {
+                            SnapshotDetailSummary(
+                                id = it.id,
+                                name = it.name,
+                                createdAtMillis = it.createdAtMillis,
+                                sourceType = it.sourceType,
+                                lifecycle = it.lifecycle,
+                                scopeCompleteness = it.scopeCompleteness,
+                                recordCount = it.recordCount,
+                                includedRecordCount = it.includedRecordCount,
+                                reviewCount = it.reviewCount,
+                                partialCount = it.partialCount,
+                                warningCount = it.warningCount
+                            )
+                        }
+                        var screenOperationError by remember(snapshotId) { mutableStateOf(false) }
+                        var screenIsDeleting by remember(snapshotId) { mutableStateOf(false) }
+                        SnapshotDetailScreen(
+                            snapshot = detail,
+                            loading = snapshots == null,
+                            loadingError = snapshotsLoadError,
+                            operationError = screenOperationError,
+                            isDeleting = screenIsDeleting,
+                            onBackToLibrary = { navController.popBackStack(AppDestination.Library.route, false) },
+                            onRetry = { snapshotRetryCount++ },
+                            onRename = { name ->
+                                if (snapshotId != null) coroutineScope.launch {
+                                    screenOperationError = try {
+                                        !snapshotRepository.renameSnapshot(snapshotId, name)
+                                    } catch (_: Exception) {
+                                        true
+                                    }
+                                }
+                            },
+                            onDelete = {
+                                if (snapshotId != null && !screenIsDeleting) coroutineScope.launch {
+                                    screenIsDeleting = true
+                                    screenOperationError = false
+                                    try {
+                                        if (snapshotRepository.deleteSnapshot(snapshotId)) {
+                                            navController.popBackStack(AppDestination.Library.route, false)
+                                        } else {
+                                            screenOperationError = true
+                                        }
+                                    } catch (_: Exception) {
+                                        screenOperationError = true
+                                    } finally {
+                                        screenIsDeleting = false
+                                    }
+                                }
+                            }
                         )
                     }
                     composable(AppDestination.NewScan.route) {
@@ -523,6 +629,14 @@ private fun NewScanScreen(
                         textAlign = TextAlign.Center
                     )
                 }
+                TextButton(
+                    onClick = onPreparation,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                        .heightIn(min = 48.dp)
+                        .focusOutline(RoundedCornerShape(12.dp))
+                ) {
+                    Text(stringResource(R.string.review_preparation))
+                }
                 OutlinedTextField(
                     value = scanName,
                     onValueChange = onScanNameChange,
@@ -651,22 +765,6 @@ private fun CaptureMethodCard(title: String, body: String) {
 }
 
 @Composable
-private fun LibraryScreen(
-    illustrationRes: Int,
-    modifier: Modifier = Modifier,
-    onNewScan: () -> Unit
-) {
-    IllustratedInformationState(
-        illustrationRes = illustrationRes,
-        title = stringResource(R.string.empty_library_title),
-        body = stringResource(R.string.empty_library_description),
-        actionLabel = stringResource(R.string.new_scan_action),
-        onAction = onNewScan,
-        modifier = modifier
-    )
-}
-
-@Composable
 private fun ScrollableScreenColumn(
     modifier: Modifier = Modifier,
     verticalPadding: androidx.compose.ui.unit.Dp = 20.dp,
@@ -688,7 +786,7 @@ private fun ScrollableScreenColumn(
 }
 
 @Composable
-private fun IllustratedInformationState(
+internal fun IllustratedInformationState(
     illustrationRes: Int,
     title: String,
     body: String,

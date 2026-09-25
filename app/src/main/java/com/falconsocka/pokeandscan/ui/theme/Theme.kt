@@ -44,7 +44,10 @@ fun PokeAndScanTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    CompositionLocalProvider(LocalFocusOutlineColor provides if (darkTheme) DarkFocusOutline else LightFocusOutline) {
+    CompositionLocalProvider(
+        LocalFocusOutlineColor provides if (darkTheme) DarkFocusOutline else LightFocusOutline,
+        LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors
+    ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
             typography = Typography,
