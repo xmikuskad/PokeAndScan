@@ -1,12 +1,14 @@
 package com.falconsocka.pokeandscan
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -53,8 +55,20 @@ class SnapshotRepositoryTest {
             .build()
         val originalRepository = SnapshotRepository(persistentDatabase, SnapshotEvidenceStore(filesDirectory))
         val createdAt = LocalDate.of(2026, 9, 25).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val snapshotId = originalRepository.createSnapshot("Community Day", AppLanguage.English, SnapshotSourceType.MP4, createdAt)
-        val secondId = originalRepository.createSnapshot(null, AppLanguage.Slovak, null, createdAt)
+        val fallbackName = defaultSnapshotName(context, AppLanguage.Slovak, createdAt)
+        val slovakContext = context.createConfigurationContext(
+            Configuration(context.resources.configuration).apply {
+                setLocale(Locale.forLanguageTag(AppLanguage.Slovak.languageTag))
+            }
+        )
+        assertTrue(fallbackName.startsWith(slovakContext.getString(R.string.default_scan_name, "").trim()))
+        val snapshotId = originalRepository.createSnapshot(
+            "Community Day",
+            defaultSnapshotName(context, AppLanguage.English, createdAt),
+            SnapshotSourceType.MP4,
+            createdAt
+        )
+        val secondId = originalRepository.createSnapshot(null, fallbackName, null, createdAt)
         persistentDatabase.snapshotDao().insertRecord(
             PokemonRecordEntity(
                 id = UUID.randomUUID().toString(),
@@ -85,7 +99,7 @@ class SnapshotRepositoryTest {
             val renamed = stored.single { it.id == snapshotId }
             val generated = stored.single { it.id == secondId }
             assertEquals("October catches", renamed.name)
-            assertEquals("Sken 25.09.2026", generated.name)
+            assertEquals(fallbackName, generated.name)
             assertEquals(SnapshotSourceType.MP4, renamed.sourceType)
             assertEquals(SnapshotLifecycle.PROCESSING, renamed.lifecycle)
             assertEquals(null, renamed.scopeCompleteness)
@@ -98,8 +112,16 @@ class SnapshotRepositoryTest {
 
     @Test
     fun deletionCascadesOnlySelectedSnapshotAndItsEvidence() = runBlocking {
-        val deletedId = repository.createSnapshot("To remove", AppLanguage.English, SnapshotSourceType.MP4)
-        val retainedId = repository.createSnapshot("Keep", AppLanguage.English, SnapshotSourceType.LIVE)
+        val deletedId = repository.createSnapshot(
+            "To remove",
+            defaultSnapshotName(context, AppLanguage.English),
+            SnapshotSourceType.MP4
+        )
+        val retainedId = repository.createSnapshot(
+            "Keep",
+            defaultSnapshotName(context, AppLanguage.English),
+            SnapshotSourceType.LIVE
+        )
         val recordId = UUID.randomUUID().toString()
         val evidencePath = repositoryEvidenceFile(deletedId, "species.webp")
         val externalVideo = File(testRoot, "outside/original-screen-recording.mp4").apply {
@@ -153,7 +175,11 @@ class SnapshotRepositoryTest {
 
     @Test
     fun evidenceStagingFailureLeavesSnapshotAndLocalEvidenceAvailable() = runBlocking {
-        val snapshotId = repository.createSnapshot("Keep intact", AppLanguage.English, SnapshotSourceType.LIVE)
+        val snapshotId = repository.createSnapshot(
+            "Keep intact",
+            defaultSnapshotName(context, AppLanguage.English),
+            SnapshotSourceType.LIVE
+        )
         val evidence = repositoryEvidenceFile(snapshotId, "field.webp")
         val pendingDirectory = File(File(filesDirectory, "snapshots"), ".pending-delete").apply { mkdirs() }
         File(pendingDirectory, snapshotId).mkdirs()

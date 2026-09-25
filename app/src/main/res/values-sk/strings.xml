@@ -7,6 +7,7 @@
     <string name="empty_library_description">Vytvorte prvý sken a uchovajte si prehľadný záznam svojej zbierky priamo v zariadení.</string>
     <string name="new_scan_action">Nový sken</string>
     <string name="new_scan_title">Nový sken</string>
+    <string name="default_scan_name">Sken %1$s</string>
     <string name="language_setting">Jazyk</string>
     <string name="language_english">English</string>
     <string name="language_slovak">Slovenčina</string>

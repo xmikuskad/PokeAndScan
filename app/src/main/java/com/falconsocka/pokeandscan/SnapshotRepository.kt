@@ -7,11 +7,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import java.util.UUID
 
 class SnapshotRepository(
@@ -24,15 +19,16 @@ class SnapshotRepository(
 
     fun observeSnapshot(snapshotId: String): Flow<SnapshotDetailSummary?> = dao.observeSnapshot(snapshotId)
 
+    /** Stores a user-entered name, or the already-localized default supplied by the caller. */
     suspend fun createSnapshot(
         displayName: String?,
-        language: AppLanguage,
+        fallbackName: String,
         sourceType: SnapshotSourceType?,
         createdAtMillis: Long = System.currentTimeMillis()
     ): String = withContext(Dispatchers.IO) {
         val id = UUID.randomUUID().toString()
         val name = displayName?.trim()?.takeIf(String::isNotEmpty)
-            ?: generatedSnapshotName(language, createdAtMillis)
+            ?: fallbackName.trim().also { require(it.isNotEmpty()) }
         database.withTransaction {
             dao.insertSnapshot(
                 SnapshotEntity(
@@ -93,15 +89,6 @@ class SnapshotRepository(
             database = SnapshotDatabase.get(context),
             evidenceStore = SnapshotEvidenceStore(context.filesDir)
         )
-
-        fun generatedSnapshotName(language: AppLanguage, createdAtMillis: Long): String {
-            val date = Instant.ofEpochMilli(createdAtMillis)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDate()
-                .format(DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.forLanguageTag(language.languageTag)))
-            val prefix = if (language == AppLanguage.Slovak) "Sken" else "Scan"
-            return "$prefix $date"
-        }
     }
 }
 

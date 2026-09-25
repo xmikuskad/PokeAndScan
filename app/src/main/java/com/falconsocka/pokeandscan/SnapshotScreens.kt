@@ -39,7 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -565,8 +565,8 @@ private fun SnapshotMissingState(onBackToLibrary: () -> Unit, modifier: Modifier
 
 @Composable
 private fun formattedDate(createdAtMillis: Long): String {
-    val context = LocalContext.current
-    val locale = context.resources.configuration.locales[0].let { Locale.forLanguageTag(it.toLanguageTag()) }
+    val configuration = LocalConfiguration.current
+    val locale = configuration.locales[0].let { Locale.forLanguageTag(it.toLanguageTag()) }
     val formatter = remember(locale) { DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale) }
     return formatter.format(Instant.ofEpochMilli(createdAtMillis).atZone(ZoneId.systemDefault()))
 }

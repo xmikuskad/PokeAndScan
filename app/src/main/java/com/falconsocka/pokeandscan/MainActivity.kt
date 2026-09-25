@@ -80,9 +80,6 @@ import com.falconsocka.pokeandscan.ui.theme.AppSpacing
 import com.falconsocka.pokeandscan.ui.theme.AppShapes
 import com.falconsocka.pokeandscan.ui.theme.focusOutline
 import java.util.Locale
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -180,7 +177,7 @@ fun PokeAndScanApp(preferences: AppPreferences) {
     }
     var theme by remember { mutableStateOf(preferences.theme()) }
     var selectedCaptureSource by remember { mutableStateOf(CaptureSource.LiveCapture) }
-    var scanName by remember(language) { mutableStateOf(defaultScanName(language)) }
+    var scanName by remember(language) { mutableStateOf(defaultSnapshotName(context, language)) }
     val finishOnboarding: () -> Unit = {
         preferences.completeOnboarding()
         navController.navigate(AppDestination.Library.route) {
@@ -534,6 +531,7 @@ private fun PreparationScreen(
     onContinue: () -> Unit
 ) {
     val context = LocalContext.current
+    val pokemonGoNotFoundMessage = stringResource(R.string.pokemon_go_not_found)
     ScrollableScreenColumn(modifier = modifier) {
         IllustrationArtwork(illustrationRes, height = 184.dp)
         Text(
@@ -565,7 +563,7 @@ private fun PreparationScreen(
             onClick = {
                 val launchIntent = context.packageManager.getLaunchIntentForPackage("com.nianticlabs.pokemongo")
                 if (launchIntent != null) context.startActivity(launchIntent)
-                else Toast.makeText(context, context.getString(R.string.pokemon_go_not_found), Toast.LENGTH_SHORT).show()
+                else Toast.makeText(context, pokemonGoNotFoundMessage, Toast.LENGTH_SHORT).show()
             },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -952,10 +950,3 @@ private fun ThemeChoiceRow(
 
 private fun appVersion(context: Context): String =
     context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
-
-private fun defaultScanName(language: AppLanguage): String {
-    val locale = Locale.forLanguageTag(language.languageTag)
-    val date = LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
-    val prefix = if (language == AppLanguage.Slovak) "Sken" else "Scan"
-    return "$prefix $date"
-}
