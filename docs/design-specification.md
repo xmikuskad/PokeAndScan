@@ -22,18 +22,38 @@ Every MVP screen defines a clear empty/no-content state for cases where its expe
 
 The supplied visual boards are presentation references. Production UI follows Android/Material 3 conventions on the Pixel 9 Pro XL target, including Android system chrome, back behavior, permission surfaces, and Save/Share flows. iOS-specific mockup conventions are not copied into product behavior.
 
-Illustrations use original, generic nature/exploration motifs. They may appear in onboarding, capture education, supported setup, empty states, recovery, and optionally a summary hero. Processing, active scan, review, snapshot detail, export, and settings remain predominantly utilitarian and evidence-first. Product illustrations must not use Pokémon characters, Poké Ball-like symbols, official artwork, copied Pokémon GO UI, or landscape/video thumbnails that imply retained source media.
+Illustrations use original, generic nature/exploration motifs. The [illustration asset map](./illustration-asset-map.md) is the source of truth for screen assignments, light/dark candidates, and assets kept out of the app.
+
+Use illustrations on Welcome, Capture explanation, Supported setup, New scan, Preparation, the live-capture permission transition, MP4 preflight states, interrupted-scan recovery, Summary, the empty Scans home, and the Library/search empty state as listed in the asset map. Keep active capture, processing, review, manual add, scan details and record editing, export, and settings/privacy utilitarian and evidence-first; their dedicated illustration files remain source-only in Downloads.
+
+Each screen or state has its own candidate pool for each theme. On entry, choose one candidate from that exact pool and keep it for the whole visit. On a later visit, choose again; when a pool has multiple candidates, avoid choosing the same candidate twice in a row. The map pairs light and dark variants by candidate slot, so a theme change during a visit keeps the selected slot. Never reuse one asset in different screen/state pools.
+
+Show the complete image composition. Scale proportionally with a fit/contain behavior; do not crop, mask, stretch, or cut out parts. Keep the whole illustration visible at the largest intended display size for the Pixel 9 Pro XL reference and let surrounding content reflow. In the Library, use only the mapped small decorative motif; never use artwork as a scan or media thumbnail. Product illustrations must not use Pokémon characters, Poké Ball-like symbols, official artwork, copied Pokémon GO UI, or landscape/video thumbnails that imply retained source media.
+
+### Illustrated information and empty-state layout
+
+Use one shared layout pattern for illustrated information screens and empty states:
+
+- Center one complete illustration above the title, explanatory copy, and the primary action. Center this group vertically in the available content area when it fits; if content grows, let the entire screen scroll without clipping text or artwork.
+- Use a centered illustration slot up to 360 dp wide and 208 dp tall, with fit/contain scaling. Keep at least 16 dp between the image and title, 8 dp between title and copy, and 24 dp between copy and primary action.
+- Limit the full content column to 440 dp and explanatory copy to 360 dp. Use 20 dp horizontal screen padding and a 52 dp minimum primary-action height. Keep the primary action full-width within the content column; place secondary actions below it with quieter styling and at least a 48 dp touch target.
+- Use the Screen title typography token for the state title and Body for its explanation. Both are centered. Keep localization and Android font scaling enabled; allow copy and controls to wrap and the screen to scroll rather than shrinking text or artwork.
+- Treat the illustration as decorative when the adjacent text conveys the same meaning, so it does not add redundant TalkBack output.
+
+Use the centered illustration-and-introduction pattern on Welcome, Capture explanation, New scan, and Preparation. Keep the following content left-aligned: Welcome details and language choices; Capture explanation source cards and reminder; New scan name, scope, and selectable source cards; Preparation guidance. New scan keeps one Continue action fixed at the bottom while its form scrolls. Apply the full vertically centered information/empty-state layout to Scans/Library when no scans exist. Do not center forms or data-heavy content as a whole. Settings remains illustration-free. The full empty-state image on a no-scans screen is distinct from the Library list's 40–64 dp decorative motif; neither may be used as a scan/media thumbnail.
+
+Keep all original packs in their existing Downloads folders. Copy only the mapped runtime candidates into the app as reduced, optimized derivatives; use lossless WebP when it is smaller, otherwise keep an optimized PNG. Do not convert or copy source-only assets into the project.
 
 ## Navigation
 
 ~~~
-Snapshot Library (home)
+Scans (home)
 ├── New scan
 │   ├── Setup (name, scope, capture source)
 │   ├── Preparation
 │   ├── Capture / processing
 │   └── Summary
-├── Snapshot detail
+├── Scan details
 │   ├── Review
 │   └── Export
 └── Settings (app-bar action)
@@ -42,7 +62,7 @@ Snapshot Library (home)
     └── Privacy (external link)
 ~~~
 
-Snapshot Library is the home screen. New scan is its dominant action, while Settings is an app-bar action. Capture, processing, review, and export are focused flows without a permanent bottom navigation bar; they use normal back behavior where it is safe.
+Scans is the home screen. New scan is its dominant action, while Settings is an app-bar action. Capture, processing, review, and export are focused flows without a permanent bottom navigation bar; they use normal back behavior where it is safe.
 
 ## Language
 
@@ -69,8 +89,10 @@ Confirmed surface/text tokens:
 | Raised/card surface | `#FFFFFF` | `#172033` |
 | Subtle surface | `#E7F0FF` | `#162238` |
 | Primary text | `#0F172A` | `#F8FAFC` |
-| Secondary text | `#64748B` | `#CBD5E1` |
+| Secondary text | `#5B6B82` | `#CBD5E1` |
 | Outline | `#C9D7EA` | `#334155` |
+| Focus outline | `#0067D6` | `#60A5FA` |
+| OnPrimary | `#FFFFFF` | `#0B1220` |
 
 Confirmed semantic status tokens (foreground / container):
 
@@ -86,25 +108,25 @@ Status color is always paired with a text label and icon.
 
 The product UI uses **Plus Jakarta Sans** for its typography system. The implementation must preserve Slovak diacritics, support Android font scaling, keep CP/IV values legible, and reflow instead of clipping critical labels or actions.
 
-Typography scale:
+Typography tokens (size / line height / letter spacing / weight; dimensions in sp):
 
-| Role | Size | Weight |
-|---|---:|---|
-| Large screen title | 28 sp | Bold (700) |
-| Screen title | 24 sp | SemiBold (600–700) |
-| Section title | 20 sp | SemiBold (600) |
-| Card title | 16–18 sp | SemiBold (600) |
-| Body | 16 sp | Regular (400) |
-| Supporting body | 14 sp | Regular (400) |
-| Label | 14 sp | Medium/SemiBold (500–600) |
-| Compact status badge | 12–14 sp | SemiBold (600) |
-| Large metric | 28–32 sp | Bold (700) |
+| Role | Size | Line height | Letter spacing | Weight |
+|---|---:|---:|---:|---|
+| Large screen title | 28 sp | 36 sp | −0.25 sp | Bold (700) |
+| Screen title | 24 sp | 30 sp | −0.2 sp | SemiBold (600) |
+| Section title | 20 sp | 26 sp | 0 sp | SemiBold (600) |
+| Card title | 18 sp | 24 sp | 0 sp | SemiBold (600) |
+| Body | 16 sp | 24 sp | 0 sp | Regular (400) |
+| Supporting body | 14 sp | 20 sp | 0 sp | Regular (400) |
+| Label | 14 sp | 20 sp | +0.1 sp | Medium (500) |
+| Compact status badge | 12 sp | 16 sp | +0.1 sp | SemiBold (600) |
+| Large metric | 30 sp | 36 sp | −0.2 sp | Bold (700) |
 
 Android font scaling must remain supported; layouts reflow rather than clipping critical labels, values, or actions.
 
-Shared component geometry uses a 4 dp spacing grid, 20 dp default horizontal screen padding on the Pixel 9 Pro XL reference, 16 dp primary card corners, 12 dp control/button corners, and 52 dp primary button height. Prefer tonal surface hierarchy and restrained outlines/elevation over large shadows. Each screen should have one dominant CTA; secondary and destructive actions remain visually quieter unless a real destructive confirmation is active.
+Shared component geometry uses a 4 dp spacing grid, 20 dp default horizontal screen padding on the Pixel 9 Pro XL reference, 16 dp primary card corners, 12 dp control/button corners, and 52 dp primary button height. Use the Focus outline token for visible keyboard/switch focus indicators; the subtler Outline token is not a substitute. Prefer tonal surface hierarchy and restrained outlines/elevation over large shadows. Each screen should have one dominant CTA; secondary and destructive actions remain visually quieter unless a real destructive confirmation is active.
 
-Privacy opens an external privacy page hosted on GitHub Pages. The concrete URL will be added when the hosting repository is known. The app must not imply that deleting a snapshot removes the original MP4 selected from outside the app.
+Privacy opens the English or Slovak external GitHub Pages policy according to the app's saved language. The canonical URLs are maintained in [privacy-policy.md](./privacy-policy.md); keep the app's URL mapping aligned with that source. The app must not imply that deleting a scan removes the original MP4 selected from outside the app.
 
 Settings MVP contains only Language, Theme, and Privacy. There is no About page, Advanced/Developer diagnostics section, custom data-storage manager, Delete all data action, or CSV/JSON restore entry point in MVP. The Settings screen shows the app name and version as static footer information.
 
@@ -112,7 +134,7 @@ Settings MVP contains only Language, Theme, and Privacy. There is no About page,
 
 The first-run flow is a short guided sequence rather than a marketing carousel:
 
-`Welcome → Capture explanation → Supported setup → Snapshot Library`
+`Welcome → Capture explanation → Supported setup → Scans`
 
 Each screen has one purpose and a clear Continue action. The sequence is guided but not permanently blocking; it can be exited and is not repeated on every scan. No screen-capture or notification permission is requested during onboarding.
 
@@ -157,7 +179,7 @@ Separate reference requirements from facts detected on the current device. Do no
 
 ## New scan flow
 
-The initial New scan screen is one scrollable setup view with a single sticky Continue action. It contains the optional snapshot name, scan scope, and capture source. The user makes these choices before entering the preparation checklist; MVP does not split them into separate wizard steps.
+The initial New scan screen is one scrollable setup view with a single sticky Continue action. It contains the optional scan name, scan scope, and capture source. The user makes these choices before entering the preparation checklist; MVP does not split them into separate wizard steps. Capture-source cards are selectable options and do not start capture or open the file picker. Continue opens Preparation. After the user confirms readiness, the selected source determines the next action: live capture opens its permission transition; MP4 import opens the file picker followed by preflight.
 
 ### Scope
 
@@ -172,16 +194,16 @@ Future scopes such as moves, items, and metadata stay hidden or visibly marked a
 
 Primary action: Continue.
 
-### Snapshot name
+### Scan name
 
-Before preparation, show an optional name field for the new snapshot:
+Before preparation, show an optional name field for the new scan:
 
 ~~~
-Snapshot name (optional)
+Scan name (optional)
 [ Sken 20.12.2023 ] / [ Scan 20.12.2023 ]
 ~~~
 
-The date-based default is editable and localized to the current app language when generated. Once saved, it is an ordinary stored name and does not change after a language switch. The name should be visible later in snapshot history, snapshot detail, and export metadata. The user can describe a tag or purpose here, for example `PVP Pokémoni`.
+The date-based default is editable and localized to the current app language when generated. Once saved, it is an ordinary stored name and does not change after a language switch. The name should be visible later in scan history, scan details, and export metadata. The user can describe a tag or purpose here, for example `PVP Pokémoni`.
 
 ### Preparation checklist
 
@@ -189,7 +211,7 @@ This is a short per-scan reminder, not a repeat of the onboarding lesson. Suppor
 
 1. Set Pokémon GO to English.
 2. Keep the phone in portrait.
-3. Use default display and font settings.
+3. Use default display and font settings in Pokémon GO. This is a requirement of the verified capture profile, not permission to disable font scaling inside PokeAndScan. PokeAndScan must respect Android font scaling and reflow its own UI rather than shrinking text or clipping content.
 4. Open Pokémon storage.
 5. Confirm that the intended scan scope is active: the whole collection, or a deliberate in-game filter/tag such as a chosen tag.
 6. Clear accidental filters and sort by Name A→Z where practical.
@@ -220,7 +242,6 @@ Primary card:
 Live capture
 Recommended
 Analyze the screen while you manually move through Pokémon.
-[ START LIVE CAPTURE ]
 ~~~
 
 Secondary card:
@@ -228,10 +249,9 @@ Secondary card:
 ~~~
 Import MP4 recording
 Use an Android screen recording when live capture is unavailable.
-[ IMPORT MP4 ]
 ~~~
 
-The app also accepts an MP4 shared from Android Files or Gallery. Both entry points lead to the same source preflight and scan setup; the original video remains owned by the user-selected external location.
+These cards only select the source; neither has a start/import button. The single sticky Continue action opens Preparation. After the final `I'm ready` confirmation, Live capture starts its permission transition. For Import MP4, open the Android file picker and then show MP4 preflight. The app also accepts an MP4 shared from Android Files or Gallery. Both import entry points lead to the same preflight; the original video remains owned by the user-selected external location.
 
 ### MP4 preflight
 
@@ -245,7 +265,7 @@ Profile result states:
 
 ### Live capture transition
 
-After START LIVE CAPTURE:
+After the user confirms readiness with Live capture selected:
 
 1. Request notification permission if the Android version requires it and the user has not decided yet.
 2. Show Android screen-capture consent.
@@ -291,15 +311,15 @@ The processing status must remain recoverable when the user locks the phone. Reo
 Processing was interrupted.
 
 [ CONTINUE PROCESSING ]
-[ FINISH PARTIAL SNAPSHOT ]
+[ FINISH AS PARTIAL SCAN ]
 [ DISCARD ]
 ~~~
 
 Do not resume long-running work automatically.
 
-The recovery surface shows the snapshot name, source type/file, last saved progress, retained candidates, review count, and missed-screen count. `Continue processing` is the primary action, `Finish partial snapshot` is secondary, and `Discard` is destructive and requires confirmation. If the source URI is no longer available, disable Continue with a plain-language explanation while keeping the other two choices available.
+The recovery surface shows the scan name, source type/file, last saved progress, retained candidates, review count, and missed-screen count. `Continue processing` is the primary action, `Finish as partial scan` is secondary, and `Discard` is destructive and requires confirmation. If the source URI is no longer available, disable Continue with a plain-language explanation while keeping the other two choices available.
 
-If a capture or processing job is already active, disable **New scan** and explain that only one active job is supported in MVP. Existing finalized snapshots remain accessible.
+If a capture or processing job is already active, disable **New scan** and explain that only one active job is supported in MVP. Existing finalized scans remain accessible.
 
 When MP4 processing continues in the background, provide the foreground-service notification required by Android. Do not request runtime notification permission solely for MP4 processing. Keep in-app progress as the primary status surface; when permission is denied, explain that Android may expose service status/stop through Task Manager rather than the notification drawer. Processing and checkpoint-based recovery remain functional where platform rules permit.
 
@@ -313,11 +333,11 @@ If processing or capture is interrupted, show the scan as incomplete and preserv
 This scan was interrupted.
 
 [ CONTINUE SCAN ]
-[ FINISH PARTIAL SNAPSHOT ]
+[ FINISH AS PARTIAL SCAN ]
 [ DISCARD SCAN ]
 ~~~
 
-Discard requires confirmation. Finishing creates a clearly marked partial snapshot and keeps its warnings visible.
+Discard requires confirmation. Finishing creates a clearly marked partial scan and keeps its warnings visible.
 
 ### Summary
 
@@ -333,7 +353,7 @@ Partial                    3
 Warnings                   2
 
 [ REVIEW ISSUES ]
-[ VIEW SNAPSHOT ]
+[ VIEW SCAN ]
 [ EXPORT ]
 ~~~
 
@@ -352,7 +372,7 @@ Summary copy must derive simple labels from separate fields:
 - `PROCESSING` → **Processing**;
 - `INCOMPLETE` → **Incomplete**;
 - `COMPLETE` + `INTENDED_RANGE` + no warnings → **Complete**;
-- `COMPLETE` + `PARTIAL` scope → **Partial snapshot**, with supporting copy that the intended range was not verified, not a claim that a Pokémon was missed; show an additional warning label when needed;
+- `COMPLETE` + `PARTIAL` scope → **Partial scan**, with supporting copy that the intended range was not verified, not a claim that a Pokémon was missed; show an additional warning label when needed;
 - `COMPLETE` + `INTENDED_RANGE` + warnings → **Complete with warnings**.
 
 Do not expose a matrix of technical enum combinations to the user.
@@ -373,7 +393,7 @@ The warning must also offer:
 [ ADD POKÉMON MANUALLY ]
 ~~~
 
-The manual form uses the same validation as review, marks the resulting record as `Manually added`, and makes clear that it has no captured source evidence. The user may cancel without creating a record.
+The manual form uses the same validation as review, marks the resulting record as `Manually added`, and makes clear that the Pokémon was added manually and its values were not detected from an appraisal screen. A Missed appraisal warning may retain its own transition crop; that crop belongs to the warning and is not parser-detected evidence for the manually added record. The user may cancel without creating a record.
 
 Manual-add form:
 
@@ -446,36 +466,36 @@ Species and form pickers use the bundled dictionary only. If captured text is no
 
 If a species search has no match, show `No species found`/localized copy, provide a clear-search action, and explain that the offline species list is extended through app updates. Do not allow free-form canonical species entry.
 
-Review also offers **Exclude record** when the whole record is wrong or duplicated. Exclusion is immediate and reversible: the record leaves the normal snapshot result and export, while a snackbar offers `Undo` and Snapshot detail provides `Restore`/`Show excluded`. Do not show a confirmation dialog for this action.
+Review also offers **Exclude record** when the whole record is wrong or duplicated. Exclusion is immediate and reversible: the record leaves the normal scan result and export, while a snackbar offers `Undo` and Scan details provides `Restore`/`Show excluded`. Do not show a confirmation dialog for this action.
 
 For parser-derived records, expose **Reset to original detection** when a field has a retained parser observation. Do not show this action for manually added records.
 
-Snapshot detail provides **Edit** for every included record, even when it is not in the review queue. The edit screen uses the same species/form and numeric validation as Review and shows whether values came from detection or user confirmation.
+Scan details provides **Edit** for every included record, even when it is not in the review queue. The edit screen uses the same species/form and numeric validation as Review and shows whether values came from detection or user confirmation.
 
-Snapshot detail uses lightweight filters (`All`, `Needs review`, `Partial`, `Excluded`). Record rows show sequence, species/form or Unknown, CP/IV summary, and record status. The shared editor shows current values, relevant evidence, original detection, and provenance; it does not expose raw technical confidence percentages, location metadata, or internal extracted-region details. `Reset to original detection` is available only for parser-derived records, while excluded records expose `Restore`.
+Scan details uses lightweight filters (`All`, `Needs review`, `Partial`, `Excluded`). Record rows show sequence, species/form or Unknown, CP/IV summary, and record status. The shared editor shows current values, relevant evidence, original detection, and provenance; it does not expose raw technical confidence percentages, location metadata, or internal extracted-region details. `Reset to original detection` is available only for parser-derived records, while excluded records expose `Restore`.
 
 If the selected filter has no matching records, show `No records match this filter`/localized copy and a `Clear filters` action. This is a filtered empty result only; it does not imply that records were deleted.
 
-## Snapshots and library
+## Scans and library
 
-The library lists independent snapshots, not a merged master collection.
+The library lists independent scans, not a merged master collection.
 
 When there are no scans yet, show a small original Friendly Explorer illustration, a concise `No scans yet` message (localized in the UI), one sentence explaining that the first scan creates a local result, and the dominant `New scan` action. Do not show Pokémon/media thumbnails or repeat onboarding content.
 
 If the library has an active or interrupted job but no finalized scans, pin that job first and make `Continue`/`View` the primary action. A quieter `No completed scans yet` message may explain the empty history. Do not present `New scan` as available while the single-job limit prevents starting another job.
 
-Each snapshot shows:
+Each scan card shows:
 
-- snapshot name and creation time;
+- scan name and creation time;
 - source type (`Live` or `MP4`);
 - lifecycle and scope-completeness labels;
 - compact review, partial, and warning counts;
 - export action;
 - delete action.
 
-Do not show source-video, screenshot, or landscape thumbnails. Use an abstract source/status/brand symbol so the library cannot imply retained media. Pin an active or recoverable job above finalized snapshots with its primary Continue/View action. The library remains a list of independent scans, not a merged master collection.
+Do not show source-video, screenshot, or landscape thumbnails. Use an abstract source/status/brand symbol so the library cannot imply retained media. The mapped Library illustration may appear only as a small decorative motif of about 40–64 dp; it is not a scan-media thumbnail. The library remains a list of independent scans, not a merged master collection. Pin an active or recoverable job above finalized scans with its primary Continue/View action.
 
-Deleting a snapshot requires confirmation and deletes its evidence crops and review data together. It does not delete the original MP4 outside the app.
+Deleting a scan requires confirmation and deletes its evidence crops and review data together. It does not delete the original MP4 outside the app.
 
 ## Export
 
@@ -484,15 +504,15 @@ MVP format choices:
 - CSV;
 - JSON.
 
-The export screen should make the selected snapshot obvious and show whether unresolved issues remain. It should provide Export anyway for partial results, with a clear warning.
+The export screen should make the selected scan obvious and show whether unresolved issues remain. It should provide Export anyway for partial results, with a clear warning.
 
 Normal CSV and JSON exports include every record except `Excluded`; `Ready`, `Needs review`, and `Partial` records remain included. Do not add an `Include only ready items` checkbox in MVP. This is an intentional deviation from the supplied UI handoff: an export must not silently become an incomplete subset. If the user does not want a record exported, they must explicitly exclude it first.
 
 If there are no exportable Pokémon records, show a `No records to export`/localized empty state and offer `Back to scan details` to restore excluded records. Disable CSV because it would contain no data rows. Allow JSON when it still contains useful snapshot metadata or missed-appraisal events. If JSON would contain no useful scan data either, disable export actions and explain why.
 
-Snapshot detail remains editable after export. Show the last export time, but do not imply that an existing file was updated. A later export uses the current snapshot state and may overwrite a destination only after confirmation.
+A scan remains editable through Scan details after export. Show the last export time, but do not imply that an existing file was updated. A later export uses the current snapshot state and may overwrite a destination only after confirmation.
 
-Snapshot detail also offers **Rename**. The new name appears in the library and is used for future export filenames; existing files are not renamed.
+Scan details also offers **Rename**. The new scan name appears in the library and is used for future export filenames; existing files are not renamed.
 
 Normal exports contain final values, local IDs, record status, and provenance. Technical confidence and evidence belong to a later diagnostics export.
 
@@ -509,9 +529,9 @@ Make the Unknown convention visible before export:
 - both formats include record status and provenance;
 - excluded records are not included in the normal export.
 
-The Android save/share flow proposes a filename derived from the snapshot name, for example `PVP Pokemoni.csv` or `PVP Pokemoni.json`. Invalid filename characters are sanitized. If the destination already contains the filename, ask before replacing it.
+The Android save/share flow proposes a filename derived from the scan name, for example `PVP Pokemoni.csv` or `PVP Pokemoni.json`. Invalid filename characters are sanitized. If the destination already contains the filename, ask before replacing it.
 
-For CSV, show a confirmation warning when the snapshot contains unresolved review issues or missed appraisal screens. JSON includes the snapshot status, warning counts, and missed-appraisal event details so it can preserve the complete scan context.
+For CSV, show a confirmation warning when the scan contains unresolved review issues or missed appraisal screens. JSON includes the snapshot status, warning counts, and missed-appraisal event details so it can preserve the complete scan context.
 
 Show IV percentage as `UNKNOWN`/empty-state in the UI until all three IVs are known. Once available, display one decimal place, for example `93.3%`.
 
@@ -528,7 +548,7 @@ Use actionable language:
 - “This recording uses a layout we do not support yet.”
 - “This recording is slightly different from the verified profile. Results may need more review.”
 - “Capture stopped. Your partial results are safe.”
-- “This snapshot is incomplete; export is still available.”
+- “This scan is incomplete; export is still available.”
 
 Do not expose internal categories such as IV_GEOMETRY_UNCERTAIN as the primary message.
 

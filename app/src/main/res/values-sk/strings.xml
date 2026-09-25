@@ -19,10 +19,6 @@
     <string name="privacy_description">Prečítajte si, ako PokeAndScan pracuje s vašimi údajmi.</string>
     <string name="version_footer">%1$s · Verzia %2$s</string>
     <string name="brand_tagline">Vaša zbierka, prehľadne zachytená.</string>
-    <string name="welcome_illustration_description">Pokojné jazero medzi zalesnenými kopcami pod jasnou oblohou.</string>
-    <string name="capture_illustration_description">Chodník sa vinie krajinou s horami, lesom a pokojným jazerom.</string>
-    <string name="preparation_illustration_description">Chodník vedie pomedzi stromy popri pokojnom jazere.</string>
-    <string name="empty_library_illustration_description">Pokojná horská krajinka čaká na váš prvý sken.</string>
     <string name="welcome_title">Vitajte</string>
     <string name="welcome_description">Lokálny pomocník na vytvorenie prehľadného záznamu zbierky Pokémonov, ktorý môžete skontrolovať.</string>
     <string name="welcome_details">Obrazovka sa spracúva priamo v tomto zariadení. V Pokémon GO sa pohybujete sami. Neisté údaje zostanú dostupné na kontrolu. PokeAndScan je nezávislá neoficiálna aplikácia a nie je prepojená s Pokémon GO ani jeho tvorcami.</string>
@@ -46,8 +42,16 @@
     <string name="traversal_details">V úložisku Pokémonov otvorte prvého Pokémona a vyberte Oceniť. Potom sa pomocou šípok priamo v Pokémon GO presuňte na ďalšieho Pokémona. Pred ďalším presunom počkajte, kým sa obrazovka ocenenia ustáli. Pokračujte medzi obrazovkami ocenenia; návrat do úložiska medzi každým Pokémonom nie je podporovaný postup.</string>
     <string name="open_pokemon_go">Otvoriť Pokémon GO</string>
     <string name="pokemon_go_not_found">Pokémon GO nie je v tomto zariadení nainštalovaný.</string>
-    <string name="review_preparation">Zobraziť prípravu</string>
-    <string name="new_scan_placeholder">Po príprave Pokémon GO môžete nastaviť sken.</string>
+    <string name="new_scan_state_title">Pripravte sa na sken</string>
+    <string name="new_scan_intro">Vyberte, čo chcete skenovať a ako to chcete snímať. Pred spustením si nastavenie ešte skontrolujete.</string>
+    <string name="scan_name_optional">Názov skenu (nepovinný)</string>
+    <string name="appraisal_scope">Ocenenie Pokémonov</string>
+    <string name="appraisal_scope_fields">Druh · CP · IV</string>
+    <string name="capture_source_title">Zdroj snímania</string>
+    <string name="recommended_label">Odporúčané</string>
+    <string name="scan_preparation_intro">Pred pokračovaním so zvoleným zdrojom si prejdite tieto pripomienky.</string>
+    <string name="selected_capture_source">Zvolený zdroj: %1$s</string>
+    <string name="action_im_ready">Som pripravený</string>
     <string name="action_continue">Pokračovať</string>
     <string name="action_back">Späť</string>
 </resources>

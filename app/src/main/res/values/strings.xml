@@ -19,10 +19,6 @@
     <string name="privacy_description">Read how PokeAndScan handles your data.</string>
     <string name="version_footer">%1$s · Version %2$s</string>
     <string name="brand_tagline">Your collection, captured clearly.</string>
-    <string name="welcome_illustration_description">A quiet lake between forested hills beneath a bright sky.</string>
-    <string name="capture_illustration_description">A winding trail leads through a calm mountain and lake landscape.</string>
-    <string name="preparation_illustration_description">A small trail passes through trees beside a peaceful lake.</string>
-    <string name="empty_library_illustration_description">A calm mountain lake scene, ready for your first scan.</string>
     <string name="welcome_title">Welcome</string>
     <string name="welcome_description">A local companion for making a clear, reviewable record of your Pokémon collection.</string>
     <string name="welcome_details">Your screen is processed on this device. You navigate Pokémon GO yourself. Anything uncertain stays available for your review. PokeAndScan is an unofficial companion app and is not affiliated with or endorsed by Pokémon GO or its creators.</string>
@@ -46,8 +42,16 @@
     <string name="traversal_details">In Pokémon storage, open the first Pokémon and choose Appraise. Then use Pokémon GO’s on-screen arrows to move to the next Pokémon. Wait for each appraisal screen to settle before moving again. Keep moving through appraisal screens; returning to the storage list between every Pokémon is not the supported scan flow.</string>
     <string name="open_pokemon_go">Open Pokémon GO</string>
     <string name="pokemon_go_not_found">Pokémon GO is not installed on this device.</string>
-    <string name="review_preparation">Review setup and preparation</string>
-    <string name="new_scan_placeholder">Set up a scan after preparing Pokémon GO.</string>
+    <string name="new_scan_state_title">Get ready to scan</string>
+    <string name="new_scan_intro">Choose what to scan and how to capture it. You can review the setup before starting.</string>
+    <string name="scan_name_optional">Scan name (optional)</string>
+    <string name="appraisal_scope">Pokémon appraisal</string>
+    <string name="appraisal_scope_fields">Species · CP · IVs</string>
+    <string name="capture_source_title">Capture source</string>
+    <string name="recommended_label">Recommended</string>
+    <string name="scan_preparation_intro">Review these reminders before continuing with your selected capture source.</string>
+    <string name="selected_capture_source">Selected source: %1$s</string>
+    <string name="action_im_ready">I’m ready</string>
     <string name="action_continue">Continue</string>
     <string name="action_back">Back</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.falconsocka.pokeandscan.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.staticCompositionLocalOf
 
 val LightPrimary = Color(0xFF0067D6)
 val LightOnPrimary = Color(0xFFFFFFFF)
@@ -11,8 +12,9 @@ val LightBackground = Color(0xFFEEF4FF)
 val LightSurface = Color(0xFFF8FAFF)
 val LightRaisedSurface = Color(0xFFFFFFFF)
 val LightOnSurface = Color(0xFF0F172A)
-val LightOnSurfaceVariant = Color(0xFF64748B)
+val LightOnSurfaceVariant = Color(0xFF5B6B82)
 val LightOutline = Color(0xFFC9D7EA)
+val LightFocusOutline = Color(0xFF0067D6)
 
 val DarkPrimary = Color(0xFF60A5FA)
 val DarkOnPrimary = Color(0xFF0B1220)
@@ -25,6 +27,9 @@ val DarkRaisedSurface = Color(0xFF172033)
 val DarkOnSurface = Color(0xFFF8FAFC)
 val DarkOnSurfaceVariant = Color(0xFFCBD5E1)
 val DarkOutline = Color(0xFF334155)
+val DarkFocusOutline = Color(0xFF60A5FA)
+
+val LocalFocusOutlineColor = staticCompositionLocalOf { LightFocusOutline }
 
 data class SemanticStatusColor(val foreground: Color, val container: Color)
 

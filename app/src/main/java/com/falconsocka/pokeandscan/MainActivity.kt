@@ -1,6 +1,7 @@
 package com.falconsocka.pokeandscan
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.res.Configuration
 import android.app.Activity
@@ -11,10 +12,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -38,6 +40,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -52,31 +55,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import com.falconsocka.pokeandscan.ui.illustration.ScreenIllustrationPool
+import com.falconsocka.pokeandscan.ui.illustration.ScreenIllustrationSelector
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.falconsocka.pokeandscan.ui.theme.PokeAndScanTheme
+import com.falconsocka.pokeandscan.ui.theme.focusOutline
 import java.util.Locale
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,13 +89,25 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private sealed class AppDestination(val route: String, val titleRes: Int) {
-    data object Welcome : AppDestination("welcome", R.string.welcome_title)
-    data object CaptureExplanation : AppDestination("capture-explanation", R.string.capture_explanation_title)
-    data object OnboardingPreparation : AppDestination("onboarding-preparation", R.string.preparation_title)
-    data object Library : AppDestination("library", R.string.library_title)
-    data object NewScan : AppDestination("new-scan", R.string.new_scan_title)
-    data object ScanPreparation : AppDestination("scan-preparation", R.string.preparation_title)
+private sealed class AppDestination(
+    val route: String,
+    val titleRes: Int,
+    val illustrationPool: ScreenIllustrationPool? = null
+) {
+    data object Welcome : AppDestination("welcome", R.string.welcome_title, ScreenIllustrationPool.Welcome)
+    data object CaptureExplanation : AppDestination(
+        "capture-explanation",
+        R.string.capture_explanation_title,
+        ScreenIllustrationPool.CaptureExplanation
+    )
+    data object OnboardingPreparation : AppDestination(
+        "onboarding-preparation",
+        R.string.preparation_title,
+        ScreenIllustrationPool.Preparation
+    )
+    data object Library : AppDestination("library", R.string.library_title, ScreenIllustrationPool.ScansEmpty)
+    data object NewScan : AppDestination("new-scan", R.string.new_scan_title, ScreenIllustrationPool.NewScan)
+    data object ScanPreparation : AppDestination("scan-preparation", R.string.preparation_title, ScreenIllustrationPool.Preparation)
     data object Settings : AppDestination("settings", R.string.settings_title)
 
     companion object {
@@ -111,6 +123,11 @@ private sealed class AppDestination(val route: String, val titleRes: Int) {
     }
 }
 
+private enum class CaptureSource {
+    LiveCapture,
+    Mp4Import
+}
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun PokeAndScanApp(preferences: AppPreferences) {
@@ -121,10 +138,16 @@ fun PokeAndScanApp(preferences: AppPreferences) {
     }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = AppDestination.fromRoute(backStackEntry?.destination?.route)
+    val illustrationSelector = remember { ScreenIllustrationSelector() }
+    val selectedIllustration = remember(backStackEntry?.id, currentDestination.illustrationPool) {
+        currentDestination.illustrationPool?.let(illustrationSelector::select)
+    }
     var language by remember {
         mutableStateOf(preferences.languageOrDefault())
     }
     var theme by remember { mutableStateOf(preferences.theme()) }
+    var selectedCaptureSource by remember { mutableStateOf(CaptureSource.LiveCapture) }
+    var scanName by remember(language) { mutableStateOf(defaultScanName(language)) }
     val finishOnboarding: () -> Unit = {
         preferences.completeOnboarding()
         navController.navigate(AppDestination.Library.route) {
@@ -147,8 +170,9 @@ fun PokeAndScanApp(preferences: AppPreferences) {
         ThemePreference.Light -> false
         ThemePreference.Dark -> true
     }
+    val illustrationResource = selectedIllustration?.resourceFor(darkTheme)
     SideEffect {
-        val window = (view.context as? Activity)?.window ?: return@SideEffect
+        val window = view.context.findActivity()?.window ?: return@SideEffect
         WindowCompat.getInsetsController(window, view).apply {
             isAppearanceLightStatusBars = !darkTheme
             isAppearanceLightNavigationBars = !darkTheme
@@ -166,12 +190,15 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         title = {
                             Text(
                                 text = stringResource(currentDestination.titleRes),
-                                fontWeight = FontWeight.SemiBold
+                                style = MaterialTheme.typography.headlineSmall
                             )
                         },
                         actions = {
                             if (currentDestination == AppDestination.Library) {
-                                TextButton(onClick = { navController.navigate(AppDestination.Settings.route) }) {
+                                TextButton(
+                                    onClick = { navController.navigate(AppDestination.Settings.route) },
+                                    modifier = Modifier.focusOutline(RoundedCornerShape(12.dp))
+                                ) {
                                     Text(stringResource(R.string.settings_action))
                                 }
                             }
@@ -187,6 +214,8 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                     composable(AppDestination.Welcome.route) {
                         WelcomeScreen(
                             language = language,
+                            illustrationRes = illustrationResource
+                                ?: ScreenIllustrationPool.Welcome.options.first().resourceFor(darkTheme),
                             onLanguageSelected = {
                                 language = it
                                 preferences.saveLanguage(it)
@@ -200,24 +229,48 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                     }
                     composable(AppDestination.CaptureExplanation.route) {
                         CaptureExplanationScreen(
+                            illustrationRes = illustrationResource
+                                ?: ScreenIllustrationPool.CaptureExplanation.options.first().resourceFor(darkTheme),
                             onBack = { navController.popBackStack() },
                             onContinue = { navController.navigate(AppDestination.OnboardingPreparation.route) }
                         )
                     }
                     composable(AppDestination.OnboardingPreparation.route) {
                         PreparationScreen(
+                            illustrationRes = illustrationResource
+                                ?: ScreenIllustrationPool.Preparation.options.first().resourceFor(darkTheme),
                             onBack = { navController.popBackStack() },
                             onContinue = finishOnboarding
                         )
                     }
                     composable(AppDestination.Library.route) {
-                        LibraryScreen(onNewScan = { navController.navigate(AppDestination.NewScan.route) })
+                        LibraryScreen(
+                            illustrationRes = illustrationResource
+                                ?: ScreenIllustrationPool.ScansEmpty.options.first().resourceFor(darkTheme),
+                            onNewScan = { navController.navigate(AppDestination.NewScan.route) }
+                        )
                     }
                     composable(AppDestination.NewScan.route) {
-                        NewScanScreen(onPreparation = { navController.navigate(AppDestination.ScanPreparation.route) })
+                        NewScanScreen(
+                            illustrationRes = illustrationResource
+                                ?: ScreenIllustrationPool.NewScan.options.first().resourceFor(darkTheme),
+                            scanName = scanName,
+                            onScanNameChange = { scanName = it },
+                            selectedSource = selectedCaptureSource,
+                            onSourceSelected = { selectedCaptureSource = it },
+                            onPreparation = { navController.navigate(AppDestination.ScanPreparation.route) }
+                        )
                     }
                     composable(AppDestination.ScanPreparation.route) {
                         PreparationScreen(
+                            illustrationRes = illustrationResource
+                                ?: ScreenIllustrationPool.Preparation.options.first().resourceFor(darkTheme),
+                            introRes = R.string.scan_preparation_intro,
+                            selectedSourceLabelRes = when (selectedCaptureSource) {
+                                CaptureSource.LiveCapture -> R.string.live_capture_title
+                                CaptureSource.Mp4Import -> R.string.mp4_import_title
+                            },
+                            continueLabelRes = R.string.action_im_ready,
                             onBack = { navController.popBackStack() },
                             onContinue = { navController.popBackStack() }
                         )
@@ -247,34 +300,35 @@ fun PokeAndScanApp(preferences: AppPreferences) {
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> if (baseContext === this) null else baseContext.findActivity()
+    else -> null
+}
+
 @Composable
 private fun WelcomeScreen(
     language: AppLanguage,
+    illustrationRes: Int,
     modifier: Modifier = Modifier,
     onLanguageSelected: (AppLanguage) -> Unit,
     onContinue: () -> Unit,
     onSkip: () -> Unit
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        ExplorerLandscape(
-            modifier = Modifier.fillMaxWidth().height(184.dp),
-            contentDescription = stringResource(R.string.welcome_illustration_description)
-        )
+    ScrollableScreenColumn(modifier = modifier, verticalPadding = 16.dp) {
+        IllustrationArtwork(illustrationRes, height = 188.dp)
         Text(
             text = stringResource(R.string.brand_tagline),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+            style = MaterialTheme.typography.displaySmall,
+            textAlign = TextAlign.Center
         )
         Text(
             text = stringResource(R.string.welcome_description),
+            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -303,12 +357,17 @@ private fun WelcomeScreen(
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = onContinue,
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+            modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 480.dp).fillMaxWidth()
+                .defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text(stringResource(R.string.action_continue), fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.action_continue))
         }
-        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+        TextButton(
+            onClick = onSkip,
+            modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 480.dp).fillMaxWidth()
+                .heightIn(min = 48.dp).focusOutline(RoundedCornerShape(12.dp))
+        ) {
             Text(stringResource(R.string.skip_introduction))
         }
     }
@@ -316,23 +375,19 @@ private fun WelcomeScreen(
 
 @Composable
 private fun CaptureExplanationScreen(
+    illustrationRes: Int,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        ExplorerLandscape(
-            modifier = Modifier.fillMaxWidth().height(168.dp),
-            contentDescription = stringResource(R.string.capture_illustration_description)
-        )
+    ScrollableScreenColumn(modifier = modifier) {
+        IllustrationArtwork(illustrationRes, height = 184.dp)
         Text(
             stringResource(R.string.capture_explanation_body),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
         )
         CaptureMethodCard(stringResource(R.string.live_capture_title), stringResource(R.string.live_capture_description))
         CaptureMethodCard(stringResource(R.string.mp4_import_title), stringResource(R.string.mp4_import_description))
@@ -348,32 +403,56 @@ private fun CaptureExplanationScreen(
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_back)) }
-            Button(onClick = onContinue, modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)) {
-                Text(stringResource(R.string.action_continue))
-            }
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(stringResource(R.string.action_continue))
+        }
+        TextButton(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).focusOutline(RoundedCornerShape(12.dp))
+        ) {
+            Text(stringResource(R.string.action_back))
         }
     }
 }
 
 @Composable
 private fun PreparationScreen(
+    illustrationRes: Int,
     modifier: Modifier = Modifier,
+    introRes: Int = R.string.preparation_intro,
+    selectedSourceLabelRes: Int? = null,
+    continueLabelRes: Int = R.string.action_continue,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
     val context = LocalContext.current
-    Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        ExplorerLandscape(
-            modifier = Modifier.fillMaxWidth().height(112.dp),
-            contentDescription = stringResource(R.string.preparation_illustration_description)
+    ScrollableScreenColumn(modifier = modifier) {
+        IllustrationArtwork(illustrationRes, height = 184.dp)
+        Text(
+            stringResource(introRes),
+            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
-        Text(stringResource(R.string.preparation_intro), style = MaterialTheme.typography.bodyLarge)
+        selectedSourceLabelRes?.let { sourceLabelRes ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Text(
+                    text = stringResource(R.string.selected_capture_source, stringResource(sourceLabelRes)),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
         GuidanceSection(stringResource(R.string.reference_setup_title), stringResource(R.string.reference_setup_details))
         GuidanceSection(stringResource(R.string.scan_scope_title), stringResource(R.string.scan_scope_details))
         GuidanceSection(stringResource(R.string.nickname_warning_title), stringResource(R.string.nickname_warning_details))
@@ -384,32 +463,164 @@ private fun PreparationScreen(
                 if (launchIntent != null) context.startActivity(launchIntent)
                 else Toast.makeText(context, context.getString(R.string.pokemon_go_not_found), Toast.LENGTH_SHORT).show()
             },
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
+            shape = RoundedCornerShape(12.dp)
         ) {
             Text(stringResource(R.string.open_pokemon_go))
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_back)) }
-            Button(onClick = onContinue, modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)) {
-                Text(stringResource(R.string.action_continue))
-            }
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(stringResource(continueLabelRes))
+        }
+        TextButton(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).focusOutline(RoundedCornerShape(12.dp))
+        ) {
+            Text(stringResource(R.string.action_back))
         }
     }
 }
 
 @Composable
-private fun NewScanScreen(modifier: Modifier = Modifier, onPreparation: () -> Unit) {
-    Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(stringResource(R.string.new_scan_placeholder), style = MaterialTheme.typography.bodyLarge)
+private fun NewScanScreen(
+    illustrationRes: Int,
+    scanName: String,
+    onScanNameChange: (String) -> Unit,
+    selectedSource: CaptureSource,
+    onSourceSelected: (CaptureSource) -> Unit,
+    modifier: Modifier = Modifier,
+    onPreparation: () -> Unit
+) {
+    Column(modifier = modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 560.dp)
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                IllustrationArtwork(illustrationRes, height = 176.dp)
+                Column(
+                    modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        stringResource(R.string.new_scan_state_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        stringResource(R.string.new_scan_intro),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                OutlinedTextField(
+                    value = scanName,
+                    onValueChange = onScanNameChange,
+                    modifier = Modifier.fillMaxWidth().focusOutline(RoundedCornerShape(12.dp)),
+                    label = { Text(stringResource(R.string.scan_name_optional)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.scan_scope_title), style = MaterialTheme.typography.titleLarge)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(stringResource(R.string.appraisal_scope), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                stringResource(R.string.appraisal_scope_fields),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.capture_source_title), style = MaterialTheme.typography.titleLarge)
+                    CaptureSourceCard(
+                        title = stringResource(R.string.live_capture_title),
+                        body = stringResource(R.string.live_capture_description),
+                        recommendation = stringResource(R.string.recommended_label),
+                        selected = selectedSource == CaptureSource.LiveCapture,
+                        onClick = { onSourceSelected(CaptureSource.LiveCapture) }
+                    )
+                    CaptureSourceCard(
+                        title = stringResource(R.string.mp4_import_title),
+                        body = stringResource(R.string.mp4_import_description),
+                        selected = selectedSource == CaptureSource.Mp4Import,
+                        onClick = { onSourceSelected(CaptureSource.Mp4Import) }
+                    )
+                }
+            }
+        }
         Button(
             onClick = onPreparation,
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
+                .defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Text(stringResource(R.string.review_preparation))
+            Text(stringResource(R.string.action_continue))
+        }
+    }
+}
+
+@Composable
+private fun CaptureSourceCard(
+    title: String,
+    body: String,
+    selected: Boolean,
+    recommendation: String? = null,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().focusOutline(shape),
+        shape = shape,
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            RadioButton(selected = selected, onClick = null)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    recommendation?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -417,7 +628,7 @@ private fun NewScanScreen(modifier: Modifier = Modifier, onPreparation: () -> Un
 @Composable
 private fun GuidanceSection(title: String, body: String) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -440,45 +651,108 @@ private fun CaptureMethodCard(title: String, body: String) {
 }
 
 @Composable
-private fun LibraryScreen(modifier: Modifier = Modifier, onNewScan: () -> Unit) {
+private fun LibraryScreen(
+    illustrationRes: Int,
+    modifier: Modifier = Modifier,
+    onNewScan: () -> Unit
+) {
+    IllustratedInformationState(
+        illustrationRes = illustrationRes,
+        title = stringResource(R.string.empty_library_title),
+        body = stringResource(R.string.empty_library_description),
+        actionLabel = stringResource(R.string.new_scan_action),
+        onAction = onNewScan,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun ScrollableScreenColumn(
+    modifier: Modifier = Modifier,
+    verticalPadding: androidx.compose.ui.unit.Dp = 20.dp,
+    maxContentWidth: androidx.compose.ui.unit.Dp = 560.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
+                .widthIn(max = maxContentWidth)
                 .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = verticalPadding),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun IllustratedInformationState(
+    illustrationRes: Int,
+    title: String,
+    body: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 440.dp)
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
                 .verticalScroll(rememberScrollState())
                 .heightIn(min = maxHeight)
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            ExplorerLandscape(
-                modifier = Modifier.widthIn(max = 260.dp).fillMaxWidth().height(138.dp),
-                contentDescription = stringResource(R.string.empty_library_illustration_description)
-            )
-            Spacer(Modifier.height(12.dp))
+            IllustrationArtwork(illustrationRes, height = 208.dp)
+            Spacer(Modifier.height(16.dp))
             Text(
-                text = stringResource(R.string.empty_library_title),
+                text = title,
+                modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.empty_library_description),
+                text = body,
+                modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.widthIn(max = 340.dp)
+                textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(24.dp))
             Button(
-                onClick = onNewScan,
-                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                onClick = onAction,
+                modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 360.dp).fillMaxWidth()
+                    .defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(stringResource(R.string.new_scan_action), fontWeight = FontWeight.SemiBold)
+                Text(actionLabel)
             }
         }
+    }
+}
+
+@Composable
+private fun IllustrationArtwork(
+    illustrationRes: Int,
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 200.dp
+) {
+    Box(
+        modifier = modifier.fillMaxWidth().height(height),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(illustrationRes),
+            contentDescription = null,
+            modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().fillMaxHeight(),
+            contentScale = ContentScale.Fit
+        )
     }
 }
 
@@ -489,6 +763,7 @@ private fun SettingsScreen(
     appName: String,
     appVersion: String,
     modifier: Modifier = Modifier,
+    onPrivacyInformation: () -> Unit,
     onLanguageSelected: (AppLanguage) -> Unit,
     onThemeSelected: (ThemePreference) -> Unit
 ) {
@@ -521,6 +796,7 @@ private fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = 56.dp)
+                    .focusOutline(RoundedCornerShape(16.dp))
                     .clickable(onClick = onPrivacyInformation)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -529,7 +805,7 @@ private fun SettingsScreen(
                     Text(stringResource(R.string.privacy_action), style = MaterialTheme.typography.bodyLarge)
                     Text(
                         stringResource(R.string.privacy_description),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -539,7 +815,7 @@ private fun SettingsScreen(
         Text(
             text = stringResource(R.string.version_footer, appName, appVersion),
             modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(8.dp))
@@ -549,7 +825,7 @@ private fun SettingsScreen(
 @Composable
 private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -566,6 +842,7 @@ private fun LanguageChoiceRow(label: String, selected: Boolean, onClick: () -> U
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 52.dp)
+            .focusOutline(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -585,67 +862,12 @@ private fun ThemeChoiceRow(
     LanguageChoiceRow(label, value == selected) { onSelected(value) }
 }
 
-@Composable
-private fun ExplorerLandscape(modifier: Modifier = Modifier, contentDescription: String) {
-    val dark = MaterialTheme.colorScheme.background.red < .2f
-    Box(
-        modifier = modifier
-            .semantics { this.contentDescription = contentDescription }
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            colorStops = arrayOf(
-                                0f to Color.Transparent,
-                                .14f to Color.Black,
-                                .86f to Color.Black,
-                                1f to Color.Transparent
-                            )
-                        ),
-                        blendMode = BlendMode.DstIn
-                    )
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0f to Color.Transparent,
-                                .1f to Color.Black,
-                                .9f to Color.Black,
-                                1f to Color.Transparent
-                            )
-                        ),
-                        blendMode = BlendMode.DstIn
-                    )
-                    drawRect(
-                        brush = Brush.radialGradient(
-                            colorStops = arrayOf(
-                                0f to Color.Black,
-                                .6f to Color.Black,
-                                1f to Color.Transparent
-                            ),
-                            center = Offset(size.width * .5f, size.height * .45f),
-                            radius = size.maxDimension * .78f
-                        ),
-                        blendMode = BlendMode.DstIn
-                    )
-                }
-        ) {
-            Image(
-                painter = painterResource(R.drawable.explorer_landscape_fade),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            if (dark) {
-                Box(Modifier.fillMaxSize().background(Color(0x480B1220)))
-            }
-        }
-    }
-}
-
 private fun appVersion(context: Context): String =
     context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
+
+private fun defaultScanName(language: AppLanguage): String {
+    val locale = Locale.forLanguageTag(language.languageTag)
+    val date = LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
+    val prefix = if (language == AppLanguage.Slovak) "Sken" else "Scan"
+    return "$prefix $date"
+}
