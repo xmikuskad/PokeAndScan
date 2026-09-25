@@ -34,17 +34,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -69,6 +66,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.falconsocka.pokeandscan.ui.illustration.ScreenIllustrationPool
 import com.falconsocka.pokeandscan.ui.illustration.ScreenIllustrationSelector
+import com.falconsocka.pokeandscan.ui.components.PrimaryActionButton
+import com.falconsocka.pokeandscan.ui.components.QuietActionButton
+import com.falconsocka.pokeandscan.ui.components.SecondaryActionButton
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -76,6 +76,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.falconsocka.pokeandscan.ui.theme.PokeAndScanTheme
+import com.falconsocka.pokeandscan.ui.theme.AppDimensions
+import com.falconsocka.pokeandscan.ui.theme.AppSpacing
+import com.falconsocka.pokeandscan.ui.theme.AppShapes
 import com.falconsocka.pokeandscan.ui.theme.focusOutline
 import java.util.Locale
 import java.time.LocalDate
@@ -230,9 +233,9 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         },
                         actions = {
                             if (currentDestination == AppDestination.Library) {
-                                TextButton(
+                                QuietActionButton(
                                     onClick = { navController.navigate(AppDestination.Settings.route) },
-                                    modifier = Modifier.focusOutline(RoundedCornerShape(12.dp))
+                                    modifier = Modifier
                                 ) {
                                     Text(stringResource(R.string.settings_action))
                                 }
@@ -240,9 +243,9 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         },
                         navigationIcon = {
                             if (currentDestination == AppDestination.SnapshotDetail) {
-                                TextButton(
+                                QuietActionButton(
                                     onClick = { navController.popBackStack() },
-                                    modifier = Modifier.focusOutline(RoundedCornerShape(12.dp))
+                                    modifier = Modifier
                                 ) { Text(stringResource(R.string.action_back)) }
                             }
                         }
@@ -421,7 +424,7 @@ private fun WelcomeScreen(
     onContinue: () -> Unit,
     onSkip: () -> Unit
 ) {
-    ScrollableScreenColumn(modifier = modifier, verticalPadding = 16.dp) {
+    ScrollableScreenColumn(modifier = modifier, verticalPadding = AppSpacing.large) {
         IllustrationArtwork(illustrationRes, height = 188.dp)
         Text(
             text = stringResource(R.string.brand_tagline),
@@ -443,7 +446,7 @@ private fun WelcomeScreen(
         ) {
             Text(
                 text = stringResource(R.string.welcome_details),
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(AppSpacing.large),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -460,19 +463,16 @@ private fun WelcomeScreen(
                 onClick = { onLanguageSelected(AppLanguage.Slovak) }
             )
         }
-        Spacer(Modifier.height(8.dp))
-        Button(
+        Spacer(Modifier.height(AppSpacing.small))
+        PrimaryActionButton(
             onClick = onContinue,
             modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 480.dp).fillMaxWidth()
-                .defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
-            shape = RoundedCornerShape(12.dp)
         ) {
             Text(stringResource(R.string.action_continue))
         }
-        TextButton(
+        QuietActionButton(
             onClick = onSkip,
             modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 480.dp).fillMaxWidth()
-                .heightIn(min = 48.dp).focusOutline(RoundedCornerShape(12.dp))
         ) {
             Text(stringResource(R.string.skip_introduction))
         }
@@ -504,21 +504,20 @@ private fun CaptureExplanationScreen(
         ) {
             Text(
                 stringResource(R.string.manual_navigation_reminder),
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(AppSpacing.large),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
-        Button(
+        PrimaryActionButton(
             onClick = onContinue,
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.action_continue))
         }
-        TextButton(
+        QuietActionButton(
             onClick = onBack,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).focusOutline(RoundedCornerShape(12.dp))
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.action_back))
         }
@@ -553,7 +552,7 @@ private fun PreparationScreen(
             ) {
                 Text(
                     text = stringResource(R.string.selected_capture_source, stringResource(sourceLabelRes)),
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(AppSpacing.large),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -563,27 +562,25 @@ private fun PreparationScreen(
         GuidanceSection(stringResource(R.string.scan_scope_title), stringResource(R.string.scan_scope_details))
         GuidanceSection(stringResource(R.string.nickname_warning_title), stringResource(R.string.nickname_warning_details))
         GuidanceSection(stringResource(R.string.traversal_title), stringResource(R.string.traversal_details))
-        OutlinedButton(
+        SecondaryActionButton(
             onClick = {
                 val launchIntent = context.packageManager.getLaunchIntentForPackage("com.nianticlabs.pokemongo")
                 if (launchIntent != null) context.startActivity(launchIntent)
                 else Toast.makeText(context, context.getString(R.string.pokemon_go_not_found), Toast.LENGTH_SHORT).show()
             },
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.open_pokemon_go))
         }
-        Button(
+        PrimaryActionButton(
             onClick = onContinue,
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(continueLabelRes))
         }
-        TextButton(
+        QuietActionButton(
             onClick = onBack,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).focusOutline(RoundedCornerShape(12.dp))
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.action_back))
         }
@@ -608,13 +605,13 @@ private fun NewScanScreen(
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .padding(horizontal = AppSpacing.screen, vertical = AppSpacing.screen),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.screen)
             ) {
                 IllustrationArtwork(illustrationRes, height = 176.dp)
                 Column(
                     modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -629,23 +626,21 @@ private fun NewScanScreen(
                         textAlign = TextAlign.Center
                     )
                 }
-                TextButton(
+                QuietActionButton(
                     onClick = onPreparation,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
-                        .heightIn(min = 48.dp)
-                        .focusOutline(RoundedCornerShape(12.dp))
                 ) {
                     Text(stringResource(R.string.review_preparation))
                 }
                 OutlinedTextField(
                     value = scanName,
                     onValueChange = onScanNameChange,
-                    modifier = Modifier.fillMaxWidth().focusOutline(RoundedCornerShape(12.dp)),
+                    modifier = Modifier.fillMaxWidth().focusOutline(AppShapes.control),
                     label = { Text(stringResource(R.string.scan_name_optional)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = AppShapes.control
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(stringResource(R.string.scan_scope_title), style = MaterialTheme.typography.titleLarge)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -653,8 +648,8 @@ private fun NewScanScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)
                         ) {
                             Text(stringResource(R.string.appraisal_scope), style = MaterialTheme.typography.titleMedium)
                             Text(
@@ -665,7 +660,7 @@ private fun NewScanScreen(
                         }
                     }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(stringResource(R.string.capture_source_title), style = MaterialTheme.typography.titleLarge)
                     CaptureSourceCard(
                         title = stringResource(R.string.live_capture_title),
@@ -683,11 +678,9 @@ private fun NewScanScreen(
                 }
             }
         }
-        Button(
+        PrimaryActionButton(
             onClick = onPreparation,
-            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
-                .defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen, vertical = AppSpacing.medium)
         ) {
             Text(stringResource(R.string.action_continue))
         }
@@ -717,13 +710,13 @@ private fun CaptureSourceCard(
         )
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = AppSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
             RadioButton(selected = selected, onClick = null)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(title, style = MaterialTheme.typography.titleMedium)
                     recommendation?.let {
                         Text(
@@ -755,8 +748,8 @@ private fun CaptureMethodCard(title: String, body: String) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)
         ) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -767,7 +760,7 @@ private fun CaptureMethodCard(title: String, body: String) {
 @Composable
 private fun ScrollableScreenColumn(
     modifier: Modifier = Modifier,
-    verticalPadding: androidx.compose.ui.unit.Dp = 20.dp,
+    verticalPadding: androidx.compose.ui.unit.Dp = AppSpacing.screen,
     maxContentWidth: androidx.compose.ui.unit.Dp = 560.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -778,8 +771,8 @@ private fun ScrollableScreenColumn(
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = verticalPadding),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = AppSpacing.screen, vertical = verticalPadding),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.large),
             content = content
         )
     }
@@ -802,19 +795,19 @@ internal fun IllustratedInformationState(
                 .align(Alignment.TopCenter)
                 .verticalScroll(rememberScrollState())
                 .heightIn(min = maxHeight)
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .padding(horizontal = AppSpacing.screen, vertical = AppSpacing.xLarge),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             IllustrationArtwork(illustrationRes, height = 208.dp)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(AppSpacing.large))
             Text(
                 text = title,
                 modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppSpacing.small))
             Text(
                 text = body,
                 modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
@@ -822,12 +815,10 @@ internal fun IllustratedInformationState(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            Spacer(Modifier.height(24.dp))
-            Button(
+            Spacer(Modifier.height(AppSpacing.xLarge))
+            PrimaryActionButton(
                 onClick = onAction,
                 modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 360.dp).fillMaxWidth()
-                    .defaultMinSize(minHeight = 52.dp).focusOutline(RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(actionLabel)
             }
@@ -869,8 +860,8 @@ private fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .padding(horizontal = AppSpacing.screen, vertical = AppSpacing.medium),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.screen)
     ) {
         SettingsGroup(title = stringResource(R.string.language_setting)) {
             LanguageChoiceRow(
@@ -893,10 +884,10 @@ private fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .defaultMinSize(minHeight = 56.dp)
-                    .focusOutline(RoundedCornerShape(16.dp))
+                    .defaultMinSize(minHeight = AppDimensions.settingsActionRowMinHeight)
+                    .focusOutline(AppShapes.control)
                     .clickable(onClick = onPrivacyInformation)
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                    .padding(horizontal = AppSpacing.medium, vertical = AppSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -909,20 +900,20 @@ private fun SettingsScreen(
                 }
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(AppSpacing.xSmall))
         Text(
             text = stringResource(R.string.version_footer, appName, appVersion),
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(AppSpacing.small))
     }
 }
 
 @Composable
 private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -939,10 +930,10 @@ private fun LanguageChoiceRow(label: String, selected: Boolean, onClick: () -> U
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 52.dp)
-            .focusOutline(RoundedCornerShape(12.dp))
+            .defaultMinSize(minHeight = AppDimensions.choiceRowMinHeight)
+            .focusOutline(AppShapes.control)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = AppSpacing.medium, vertical = AppSpacing.xSmall),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)

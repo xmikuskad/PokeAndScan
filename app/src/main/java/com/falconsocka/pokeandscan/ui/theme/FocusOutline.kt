@@ -1,7 +1,6 @@
 package com.falconsocka.pokeandscan.ui.theme
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.focus.onFocusChanged
@@ -12,7 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
-fun Modifier.focusOutline(shape: Shape = RoundedCornerShape(12.dp)): Modifier = composed {
+fun Modifier.focusOutline(shape: Shape = AppShapes.control): Modifier = composed {
     var isFocused by remember { mutableStateOf(false) }
     val color = LocalFocusOutlineColor.current
     onFocusChanged { isFocused = it.isFocused }
