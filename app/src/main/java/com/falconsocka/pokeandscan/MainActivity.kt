@@ -11,7 +11,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,10 +24,13 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,16 +52,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.NavHost
@@ -246,19 +259,35 @@ private fun WelcomeScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 32.dp),
+            .padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Spacer(Modifier.height(16.dp))
+        ExplorerLandscape(
+            modifier = Modifier.fillMaxWidth().height(184.dp),
+            contentDescription = stringResource(R.string.welcome_illustration_description)
+        )
+        Text(
+            text = stringResource(R.string.brand_tagline),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
         Text(
             text = stringResource(R.string.welcome_description),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(
-            text = stringResource(R.string.welcome_details),
-            style = MaterialTheme.typography.bodyLarge
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        ) {
+            Text(
+                text = stringResource(R.string.welcome_details),
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         SettingsGroup(title = stringResource(R.string.language_setting)) {
             LanguageChoiceRow(
                 label = stringResource(R.string.language_english),
@@ -296,10 +325,29 @@ private fun CaptureExplanationScreen(
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(stringResource(R.string.capture_explanation_body), style = MaterialTheme.typography.bodyLarge)
-        GuidanceSection(stringResource(R.string.live_capture_title), stringResource(R.string.live_capture_description))
-        GuidanceSection(stringResource(R.string.mp4_import_title), stringResource(R.string.mp4_import_description))
-        Text(stringResource(R.string.manual_navigation_reminder), style = MaterialTheme.typography.bodyLarge)
+        ExplorerLandscape(
+            modifier = Modifier.fillMaxWidth().height(168.dp),
+            contentDescription = stringResource(R.string.capture_illustration_description)
+        )
+        Text(
+            stringResource(R.string.capture_explanation_body),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        CaptureMethodCard(stringResource(R.string.live_capture_title), stringResource(R.string.live_capture_description))
+        CaptureMethodCard(stringResource(R.string.mp4_import_title), stringResource(R.string.mp4_import_description))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Text(
+                stringResource(R.string.manual_navigation_reminder),
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_back)) }
             Button(onClick = onContinue, modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)) {
@@ -321,6 +369,10 @@ private fun PreparationScreen(
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        ExplorerLandscape(
+            modifier = Modifier.fillMaxWidth().height(112.dp),
+            contentDescription = stringResource(R.string.preparation_illustration_description)
+        )
         Text(stringResource(R.string.preparation_intro), style = MaterialTheme.typography.bodyLarge)
         GuidanceSection(stringResource(R.string.reference_setup_title), stringResource(R.string.reference_setup_details))
         GuidanceSection(stringResource(R.string.scan_scope_title), stringResource(R.string.scan_scope_details))
@@ -371,35 +423,61 @@ private fun GuidanceSection(title: String, body: String) {
 }
 
 @Composable
-private fun LibraryScreen(modifier: Modifier = Modifier, onNewScan: () -> Unit) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun CaptureMethodCard(title: String, body: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
-        Spacer(Modifier.height(24.dp))
-        ExplorerIllustration(Modifier.size(width = 220.dp, height = 150.dp))
-        Spacer(Modifier.height(24.dp))
-        Text(
-            text = stringResource(R.string.empty_library_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.empty_library_description),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(28.dp))
-        Button(
-            onClick = onNewScan,
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
-            shape = RoundedCornerShape(12.dp)
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(stringResource(R.string.new_scan_action), fontWeight = FontWeight.SemiBold)
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun LibraryScreen(modifier: Modifier = Modifier, onNewScan: () -> Unit) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight)
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            ExplorerLandscape(
+                modifier = Modifier.widthIn(max = 260.dp).fillMaxWidth().height(138.dp),
+                contentDescription = stringResource(R.string.empty_library_illustration_description)
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.empty_library_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.empty_library_description),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(max = 340.dp)
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onNewScan,
+                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.new_scan_action), fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }
@@ -508,46 +586,63 @@ private fun ThemeChoiceRow(
 }
 
 @Composable
-private fun ExplorerIllustration(modifier: Modifier = Modifier) {
-    val primary = MaterialTheme.colorScheme.primary
-    val surface = MaterialTheme.colorScheme.primaryContainer
-    val accent = MaterialTheme.colorScheme.secondary
-    Canvas(modifier = modifier) {
-        val frameWidth = size.width * .46f
-        val frameHeight = size.height * .70f
-        val left = (size.width - frameWidth) / 2
-        val top = size.height * .08f
-        drawRoundRect(
-            color = surface,
-            topLeft = Offset(left, top),
-            size = Size(frameWidth, frameHeight),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(24f)
-        )
-        val inset = size.width * .055f
-        drawRoundRect(
-            color = primary,
-            topLeft = Offset(left + inset, top + inset),
-            size = Size(frameWidth - inset * 2, frameHeight - inset * 2),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(16f),
-            style = Stroke(width = 3.dp.toPx())
-        )
-        val trail = Path().apply {
-            moveTo(size.width * .18f, size.height * .87f)
-            cubicTo(size.width * .32f, size.height * .65f, size.width * .6f, size.height * .99f, size.width * .82f, size.height * .76f)
-        }
-        drawPath(trail, accent, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
-        drawCircle(primary, radius = 5.dp.toPx(), center = Offset(size.width * .18f, size.height * .87f))
-        drawCircle(accent, radius = 5.dp.toPx(), center = Offset(size.width * .82f, size.height * .76f))
-        val cornerLength = size.width * .07f
-        val corners = listOf(
-            Offset(left, top) to Offset(1f, 1f),
-            Offset(left + frameWidth, top) to Offset(-1f, 1f),
-            Offset(left, top + frameHeight) to Offset(1f, -1f),
-            Offset(left + frameWidth, top + frameHeight) to Offset(-1f, -1f)
-        )
-        corners.forEach { (point, direction) ->
-            drawLine(primary, point, Offset(point.x + cornerLength * direction.x, point.y), 4.dp.toPx(), StrokeCap.Round)
-            drawLine(primary, point, Offset(point.x, point.y + cornerLength * direction.y), 4.dp.toPx(), StrokeCap.Round)
+private fun ExplorerLandscape(modifier: Modifier = Modifier, contentDescription: String) {
+    val dark = MaterialTheme.colorScheme.background.red < .2f
+    Box(
+        modifier = modifier
+            .semantics { this.contentDescription = contentDescription }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Transparent,
+                                .14f to Color.Black,
+                                .86f to Color.Black,
+                                1f to Color.Transparent
+                            )
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Transparent,
+                                .1f to Color.Black,
+                                .9f to Color.Black,
+                                1f to Color.Transparent
+                            )
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                    drawRect(
+                        brush = Brush.radialGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Black,
+                                .6f to Color.Black,
+                                1f to Color.Transparent
+                            ),
+                            center = Offset(size.width * .5f, size.height * .45f),
+                            radius = size.maxDimension * .78f
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                }
+        ) {
+            Image(
+                painter = painterResource(R.drawable.explorer_landscape_fade),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            if (dark) {
+                Box(Modifier.fillMaxSize().background(Color(0x480B1220)))
+            }
         }
     }
 }

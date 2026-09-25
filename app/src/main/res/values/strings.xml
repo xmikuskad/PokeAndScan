@@ -18,6 +18,11 @@
     <string name="privacy_action">Privacy information</string>
     <string name="privacy_description">Read how PokeAndScan handles your data.</string>
     <string name="version_footer">%1$s · Version %2$s</string>
+    <string name="brand_tagline">Your collection, captured clearly.</string>
+    <string name="welcome_illustration_description">A quiet lake between forested hills beneath a bright sky.</string>
+    <string name="capture_illustration_description">A winding trail leads through a calm mountain and lake landscape.</string>
+    <string name="preparation_illustration_description">A small trail passes through trees beside a peaceful lake.</string>
+    <string name="empty_library_illustration_description">A calm mountain lake scene, ready for your first scan.</string>
     <string name="welcome_title">Welcome</string>
     <string name="welcome_description">A local companion for making a clear, reviewable record of your Pokémon collection.</string>
     <string name="welcome_details">Your screen is processed on this device. You navigate Pokémon GO yourself. Anything uncertain stays available for your review. PokeAndScan is an unofficial companion app and is not affiliated with or endorsed by Pokémon GO or its creators.</string>
