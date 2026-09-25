@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -441,7 +440,7 @@ private fun WelcomeScreen(
         )
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = AppShapes.card,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         ) {
             Text(
@@ -499,7 +498,7 @@ private fun CaptureExplanationScreen(
         CaptureMethodCard(stringResource(R.string.mp4_import_title), stringResource(R.string.mp4_import_description))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = AppShapes.card,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Text(
@@ -547,7 +546,7 @@ private fun PreparationScreen(
         selectedSourceLabelRes?.let { sourceLabelRes ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = AppShapes.card,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Text(
@@ -644,11 +643,11 @@ private fun NewScanScreen(
                     Text(stringResource(R.string.scan_scope_title), style = MaterialTheme.typography.titleLarge)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = AppShapes.card,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = 14.dp),
+                            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = AppSpacing.large),
                             verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)
                         ) {
                             Text(stringResource(R.string.appraisal_scope), style = MaterialTheme.typography.titleMedium)
@@ -695,7 +694,7 @@ private fun CaptureSourceCard(
     recommendation: String? = null,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = AppShapes.card
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().focusOutline(shape),
@@ -710,7 +709,7 @@ private fun CaptureSourceCard(
         )
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = AppSpacing.medium),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = AppSpacing.large, vertical = AppSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
@@ -744,11 +743,11 @@ private fun GuidanceSection(title: String, body: String) {
 private fun CaptureMethodCard(title: String, body: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = AppShapes.card,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = AppSpacing.large),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)
         ) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -917,7 +916,7 @@ private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = AppShapes.card,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         ) {
             Column { content() }

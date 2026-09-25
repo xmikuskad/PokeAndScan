@@ -20,9 +20,11 @@ object AppDimensions {
     val minimumTouchTarget: Dp = 48.dp
     val choiceRowMinHeight: Dp = 52.dp
     val settingsActionRowMinHeight: Dp = 56.dp
+    val cardCornerRadius: Dp = 16.dp
     val controlCornerRadius: Dp = 12.dp
 }
 
 object AppShapes {
+    val card: Shape = RoundedCornerShape(AppDimensions.cardCornerRadius)
     val control: Shape = RoundedCornerShape(AppDimensions.controlCornerRadius)
 }

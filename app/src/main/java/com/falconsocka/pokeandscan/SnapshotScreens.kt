@@ -2,6 +2,7 @@ package com.falconsocka.pokeandscan
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,13 +46,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.falconsocka.pokeandscan.ui.theme.LocalStatusColors
 import com.falconsocka.pokeandscan.ui.components.PrimaryActionButton
 import com.falconsocka.pokeandscan.ui.components.QuietActionButton
 import com.falconsocka.pokeandscan.ui.components.SecondaryActionButton
-import com.falconsocka.pokeandscan.ui.theme.AppSpacing
 import com.falconsocka.pokeandscan.ui.theme.AppShapes
-import androidx.compose.foundation.lazy.items
+import com.falconsocka.pokeandscan.ui.theme.AppSpacing
+import com.falconsocka.pokeandscan.ui.theme.LocalStatusColors
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -150,7 +150,7 @@ private fun SnapshotCard(
     snapshot: SnapshotSummary,
     onOpen: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = AppShapes.card
     Card(
         onClick = onOpen,
         modifier = Modifier.fillMaxWidth(),
@@ -167,9 +167,9 @@ private fun SnapshotCard(
                     kind = sourceGlyph(snapshot.sourceType),
                     contentDescription = sourceDescription(snapshot.sourceType),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 3.dp)
+                    modifier = Modifier.padding(top = AppSpacing.xSmall)
                 )
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)) {
                     Text(snapshot.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
                         formattedDate(snapshot.createdAtMillis),
@@ -223,7 +223,7 @@ private fun SnapshotDetailContent(
         verticalArrangement = Arrangement.spacedBy(AppSpacing.large)
     ) {
         Card(
-            shape = RoundedCornerShape(18.dp),
+            shape = AppShapes.card,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         ) {
             Column(
@@ -261,7 +261,7 @@ private fun SnapshotDetailContent(
                     SnapshotLifecycle.INCOMPLETE -> stringResource(R.string.snapshot_not_finished_notice)
                     SnapshotLifecycle.COMPLETE -> stringResource(R.string.snapshot_review_notice)
                 },
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).padding(14.dp),
+                modifier = Modifier.fillMaxWidth().clip(AppShapes.card).padding(AppSpacing.large),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )

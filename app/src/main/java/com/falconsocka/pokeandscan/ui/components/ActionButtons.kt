@@ -24,7 +24,7 @@ fun PrimaryActionButton(
         onClick = onClick,
         modifier = modifier
             .defaultMinSize(minHeight = AppDimensions.primaryActionMinHeight)
-            .focusOutline(AppShapes.control),
+            .focusOutline(),
         enabled = enabled,
         shape = AppShapes.control,
         content = content
@@ -43,7 +43,7 @@ fun SecondaryActionButton(
         onClick = onClick,
         modifier = modifier
             .defaultMinSize(minHeight = AppDimensions.minimumTouchTarget)
-            .focusOutline(AppShapes.control),
+            .focusOutline(),
         enabled = enabled,
         shape = AppShapes.control,
         content = content
@@ -62,8 +62,9 @@ fun QuietActionButton(
         onClick = onClick,
         modifier = modifier
             .heightIn(min = AppDimensions.minimumTouchTarget)
-            .focusOutline(AppShapes.control),
+            .focusOutline(),
         enabled = enabled,
+        shape = AppShapes.control,
         content = content
     )
 }
