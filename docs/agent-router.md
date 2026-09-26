@@ -31,13 +31,24 @@ The [external UI prompt](ui-design-prompt.md) and [imported v0.4 handoff](uiux-r
 | GitHub issue work, PRDs, or triage | [Issue tracker guide](agents/issue-tracker.md); for triage labels also read [triage labels](agents/triage-labels.md). |
 | Changing a domain term or architectural decision | Read [domain documentation guide](agents/domain.md), the relevant glossary entry, and any related ADR. |
 
+## Reusable Android UI
+
+Before adding a common screen control or layout, inspect the existing `app/src/main/java/com/falconsocka/pokeandscan/ui/` packages. Prefer these shared components when their interaction, semantics, and visual contract match the use:
+
+- `ui/components/`: action buttons, `AppIcons`, `SingleChoiceRow`, `SelectionOptionCard`, `InlineNotice`, `StatusBadge`, `ScreenState`, and `LoadingState`.
+- `ui/illustration/` and `ui/layout/`: illustrated introductions/states, artwork, and scrollable screen layout.
+- `ui/snapshot/`: scan-name field and dialogs, snapshot status labels, and metrics.
+
+Reuse or extend a matching component instead of creating a duplicate. Keep screen-specific copy, domain decisions, and callbacks with their owning screen or route. Do not force different interactions or workflows into one generic component just because their visuals look similar.
+
 ## Working rules
 
 1. For code changes, inspect the current implementation, nearby tests, and relevant configuration before editing. The scaffold may not match the intended MVP.
-2. Use the issue's acceptance criteria when present. If no issue exists, derive observable acceptance criteria from the relevant current specification before coding.
-3. Preserve the product trust rules: local/offline processing, user-controlled capture, retained evidence for review, and explicit Unknown values instead of guessed data.
-4. Verify the affected behavior with focused checks appropriate to the change. Report what changed, what was checked, and any unmet acceptance criterion.
-5. Treat MVP completion as a separate gate. A feature or scaffold change is not proof that the MVP completion gate has passed.
+2. For Android screen work, follow [Reusable Android UI](#reusable-android-ui) before creating a common control or layout.
+3. Use the issue's acceptance criteria when present. If no issue exists, derive observable acceptance criteria from the relevant current specification before coding.
+4. Preserve the product trust rules: local/offline processing, user-controlled capture, retained evidence for review, and explicit Unknown values instead of guessed data.
+5. Verify the affected behavior with focused checks appropriate to the change. Report what changed, what was checked, and any unmet acceptance criterion.
+6. Treat MVP completion as a separate gate. A feature or scaffold change is not proof that the MVP completion gate has passed.
 
 ## Project Markdown inventory
 
