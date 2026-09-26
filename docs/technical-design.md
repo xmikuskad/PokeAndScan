@@ -214,7 +214,7 @@ Record status semantics:
 
 `INCOMPLETE` is a session/snapshot status and must not be conflated with `recordStatus`.
 
-Snapshot lifecycle is `PROCESSING`, `INCOMPLETE`, or `COMPLETE`. Positive detection of the end of the intended live traversal automatically closes capture and finalizes the session as `COMPLETE` with `INTENDED_RANGE` scope. A user Stop before that detection finalizes the saved result as `COMPLETE` with `PARTIAL` scope after processing. An unexpected interruption leaves it `INCOMPLETE` until resume or explicit partial finalization. Discard removes the incomplete session and its local data, not a retained lifecycle state.
+Snapshot lifecycle is `SETUP`, `PROCESSING`, `INCOMPLETE`, or `COMPLETE`. `SETUP` reserves a resumable session identity before capture and does not count as an active job. Positive detection of the end of the intended live traversal automatically closes capture and finalizes the session as `COMPLETE` with `INTENDED_RANGE` scope. A user Stop before that detection finalizes the saved result as `COMPLETE` with `PARTIAL` scope after processing. An unexpected interruption leaves it `INCOMPLETE` until resume or explicit partial finalization. Discard removes the incomplete session and its local data, not a retained lifecycle state.
 
 Store scope completeness separately as `INTENDED_RANGE` or `PARTIAL`. A positively detected live traversal end produces `INTENDED_RANGE`; an earlier user Stop produces `PARTIAL`. Finishing an MP4 proves file completion but does not itself establish `INTENDED_RANGE`. Store warning counts/types and record-status counts separately. Do not introduce combined states such as `COMPLETE_WITH_WARNINGS` or `INCOMPLETE_NEEDS_REVIEW`; derive those UI labels from the orthogonal fields.
 
@@ -257,6 +257,9 @@ The system counts stable content states after meaningful navigation, not source 
 ## Persistence and storage
 
 - Room stores sessions, snapshots, candidates, records, evidence metadata, and review issues.
+- Continuing New scan or leaving a modified setup for the Library reserves one independent snapshot/session identity in `SETUP` and persists its ordinary display name, selected source, and intended scan scope. An unfinished filtered-subset description may remain blank until the user continues. `SETUP` is resumable and does not count as an active capture/processing job. The intended scope type is whole collection or a user-entered filtered-subset description; PokeAndScan never reads the game's filter/tag name.
+- Starting capture/processing atomically transitions one setup to `PROCESSING` only when no other `PROCESSING` or recoverable `INCOMPLETE` job exists. Finalized snapshots stay available while that single-job gate blocks another start.
+- Persisted setup fields are added through a Room migration so earlier local snapshots keep their identity and data.
 - Evidence crops are stored in app-private storage and referenced by evidence metadata.
 - Android cloud Auto Backup and device-to-device transfer must exclude all PokeAndScan app data in MVP, including databases, preferences, and evidence files. Set `allowBackup` explicitly and configure both legacy full-backup rules and Android 12+ cloud/device-transfer extraction rules so behavior is not left to platform defaults. Verify behavior on the reference device and supported Android range.
 - The selected MP4 URI is processed without copying the entire source video into the app by default.

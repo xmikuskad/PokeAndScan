@@ -9,6 +9,8 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 
+class ActiveScanJobException : IllegalStateException("A scan job is already active or awaiting recovery.")
+
 class SnapshotRepository(
     private val database: SnapshotDatabase,
     private val evidenceStore: SnapshotEvidenceStore
@@ -27,9 +29,9 @@ class SnapshotRepository(
         createdAtMillis: Long = System.currentTimeMillis()
     ): String = withContext(Dispatchers.IO) {
         val id = UUID.randomUUID().toString()
-        val name = displayName?.trim()?.takeIf(String::isNotEmpty)
-            ?: fallbackName.trim().also { require(it.isNotEmpty()) }
+        val name = resolveSnapshotName(displayName, fallbackName)
         database.withTransaction {
+            if (dao.hasActiveOrRecoverableJob()) throw ActiveScanJobException()
             dao.insertSnapshot(
                 SnapshotEntity(
                     id = id,
@@ -44,9 +46,62 @@ class SnapshotRepository(
         id
     }
 
+    suspend fun createSetupSnapshot(
+        displayName: String,
+        fallbackName: String,
+        sourceType: SnapshotSourceType,
+        scanScopeType: ScanScopeType,
+        scanScopeDescription: String?,
+        createdAtMillis: Long = System.currentTimeMillis()
+    ): String = withContext(Dispatchers.IO) {
+        val id = UUID.randomUUID().toString()
+        val name = resolveSnapshotName(displayName, fallbackName)
+        val description = validateScanScope(scanScopeType, scanScopeDescription)
+        database.withTransaction {
+            if (dao.hasActiveOrRecoverableJob()) throw ActiveScanJobException()
+            dao.insertSnapshot(
+                SnapshotEntity(
+                    id = id,
+                    name = name,
+                    createdAtMillis = createdAtMillis,
+                    sourceType = sourceType,
+                    lifecycle = SnapshotLifecycle.SETUP,
+                    scopeCompleteness = null,
+                    scanScopeType = scanScopeType,
+                    scanScopeDescription = description
+                )
+            )
+        }
+        id
+    }
+
+    suspend fun updateSetupSnapshot(
+        snapshotId: String,
+        displayName: String,
+        sourceType: SnapshotSourceType,
+        scanScopeType: ScanScopeType,
+        scanScopeDescription: String?
+    ): Boolean = withContext(Dispatchers.IO) {
+        val description = validateScanScope(scanScopeType, scanScopeDescription)
+        database.withTransaction {
+            val storedName = dao.setupSnapshotName(snapshotId) ?: return@withTransaction false
+            val name = resolveSnapshotName(displayName, storedName)
+            dao.updateSetupSnapshot(snapshotId, name, sourceType, scanScopeType, description) == 1
+        }
+    }
+
+    /** Atomically claims the single processing slot for an existing setup session. */
+    suspend fun startProcessing(snapshotId: String): Boolean = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            if (dao.hasActiveOrRecoverableJob()) return@withTransaction false
+            dao.updateLifecycle(snapshotId, SnapshotLifecycle.SETUP, SnapshotLifecycle.PROCESSING) == 1
+        }
+    }
+
     suspend fun renameSnapshot(snapshotId: String, displayName: String): Boolean = withContext(Dispatchers.IO) {
-        val name = displayName.trim()
-        require(name.isNotEmpty()) { "Snapshot name cannot be empty." }
+        val name = normalizedSnapshotName(displayName)
+            ?: throw IllegalArgumentException("Snapshot name cannot be empty.")
+        require(snapshotNameIssue(name) == null) { "Snapshot name contains unsupported characters or is too long." }
         dao.renameSnapshot(snapshotId, name) == 1
     }
 
@@ -72,6 +127,22 @@ class SnapshotRepository(
             // The staged directory is retried during the next startup recovery.
         }
         snapshotWasDeleted
+    }
+
+    private fun resolveSnapshotName(displayName: String?, fallbackName: String): String {
+        val name = displayName?.let(::normalizedSnapshotName) ?: normalizedSnapshotName(fallbackName)
+            ?: throw IllegalArgumentException("Snapshot name cannot be empty.")
+        require(snapshotNameIssue(name) == null) {
+            "Snapshot name contains unsupported characters or is too long."
+        }
+        return name
+    }
+
+    private fun validateScanScope(scopeType: ScanScopeType, description: String?): String? {
+        val trimmed = description?.trim { it.isWhitespace() }.orEmpty()
+        if (scopeType == ScanScopeType.WHOLE_COLLECTION) return null
+        require(trimmed.none(Char::isISOControl)) { "The scan scope description contains unsupported characters." }
+        return trimmed.takeIf(String::isNotEmpty)
     }
 
     suspend fun recoverPendingEvidenceDeletions() = withContext(Dispatchers.IO) {

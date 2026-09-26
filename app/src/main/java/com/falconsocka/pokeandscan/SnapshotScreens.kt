@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -81,22 +82,24 @@ internal fun SnapshotLibraryScreen(
             modifier = modifier
         )
         else -> androidx.compose.foundation.lazy.LazyColumn(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize().testTag("snapshot-library-list"),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = AppSpacing.screen, vertical = AppSpacing.screen),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
-            val hasUnfinishedSnapshot = snapshots.any { it.lifecycle != SnapshotLifecycle.COMPLETE }
+            val hasActiveJob = snapshots.any {
+                it.lifecycle == SnapshotLifecycle.PROCESSING || it.lifecycle == SnapshotLifecycle.INCOMPLETE
+            }
             val prioritizedSnapshots = snapshots.sortedBy { it.lifecycle.libraryPriority() }
             item {
                 PrimaryActionButton(
                     onClick = onNewScan,
-                    enabled = !hasUnfinishedSnapshot,
+                    enabled = !hasActiveJob,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(stringResource(R.string.new_scan_action))
                 }
             }
-            if (hasUnfinishedSnapshot) {
+            if (hasActiveJob) {
                 item {
                     Text(
                         stringResource(R.string.snapshot_active_job_notice),
@@ -125,6 +128,7 @@ internal fun SnapshotDetailScreen(
     isDeleting: Boolean,
     onBackToLibrary: () -> Unit,
     onRetry: () -> Unit,
+    onContinueSetup: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -137,6 +141,7 @@ internal fun SnapshotDetailScreen(
             snapshot = snapshot,
             operationError = operationError,
             isDeleting = isDeleting,
+            onContinueSetup = onContinueSetup,
             onRename = onRename,
             onDelete = onDelete,
             modifier = modifier
@@ -184,6 +189,7 @@ private fun SnapshotCard(
             ) {
                 SnapshotStateLabel(snapshot.lifecycle)
                 snapshot.scopeCompleteness?.let { SnapshotScopeLabel(it) }
+                snapshot.scanScopeType?.let { ScanIntentScopeLabel(it, snapshot.scanScopeDescription) }
                 snapshot.sourceType?.let { SnapshotSourceLabel(it) }
             }
             FlowRow(
@@ -207,6 +213,7 @@ private fun SnapshotDetailContent(
     snapshot: SnapshotDetailSummary,
     operationError: Boolean,
     isDeleting: Boolean,
+    onContinueSetup: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -242,6 +249,7 @@ private fun SnapshotDetailContent(
                 ) {
                     SnapshotStateLabel(snapshot.lifecycle)
                     snapshot.scopeCompleteness?.let { SnapshotScopeLabel(it) }
+                    snapshot.scanScopeType?.let { ScanIntentScopeLabel(it, snapshot.scanScopeDescription) }
                     snapshot.sourceType?.let { SnapshotSourceLabel(it) }
                 }
                 SummaryLine(R.string.snapshot_detail_records, snapshot.recordCount)
@@ -257,6 +265,7 @@ private fun SnapshotDetailContent(
         ) {
             Text(
                 text = when (snapshot.lifecycle) {
+                    SnapshotLifecycle.SETUP -> stringResource(R.string.snapshot_setup_saved_notice)
                     SnapshotLifecycle.PROCESSING -> stringResource(R.string.snapshot_processing_notice)
                     SnapshotLifecycle.INCOMPLETE -> stringResource(R.string.snapshot_not_finished_notice)
                     SnapshotLifecycle.COMPLETE -> stringResource(R.string.snapshot_review_notice)
@@ -283,6 +292,14 @@ private fun SnapshotDetailContent(
             )
         }
 
+        if (snapshot.lifecycle == SnapshotLifecycle.SETUP) {
+            PrimaryActionButton(
+                onClick = onContinueSetup,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.snapshot_continue_setup))
+            }
+        }
         PrimaryActionButton(
             onClick = { showRenameDialog = true },
             modifier = Modifier.fillMaxWidth()
@@ -351,18 +368,38 @@ private fun SnapshotDetailContent(
 private fun SnapshotLifecycle.libraryPriority(): Int = when (this) {
     SnapshotLifecycle.PROCESSING -> 0
     SnapshotLifecycle.INCOMPLETE -> 1
-    SnapshotLifecycle.COMPLETE -> 2
+    SnapshotLifecycle.SETUP -> 2
+    SnapshotLifecycle.COMPLETE -> 3
 }
 
 @Composable
 private fun SnapshotStateLabel(lifecycle: SnapshotLifecycle) {
     val palette = LocalStatusColors.current
     val state = when (lifecycle) {
+        SnapshotLifecycle.SETUP -> Triple(R.string.snapshot_lifecycle_setup, SnapshotGlyphKind.PARTIAL, palette.partial)
         SnapshotLifecycle.PROCESSING -> Triple(R.string.snapshot_lifecycle_processing, SnapshotGlyphKind.PROCESSING, palette.needsReview)
         SnapshotLifecycle.INCOMPLETE -> Triple(R.string.snapshot_lifecycle_incomplete, SnapshotGlyphKind.WARNING, palette.needsReview)
         SnapshotLifecycle.COMPLETE -> Triple(R.string.snapshot_lifecycle_complete, SnapshotGlyphKind.COMPLETE, palette.ready)
     }
     SemanticLabel(state.first, state.second, state.third.foreground, state.third.container)
+}
+
+@Composable
+private fun ScanIntentScopeLabel(scopeType: ScanScopeType, description: String?) {
+    val label = when (scopeType) {
+        ScanScopeType.WHOLE_COLLECTION -> stringResource(R.string.scan_scope_whole_collection)
+        ScanScopeType.FILTERED_SUBSET -> description?.takeIf(String::isNotBlank)?.let {
+            stringResource(R.string.scan_scope_filtered_summary, it)
+        } ?: stringResource(R.string.scan_scope_filtered_subset)
+    }
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+    ) {
+        Text(label, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium)
+    }
 }
 
 @Composable

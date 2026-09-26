@@ -62,13 +62,22 @@ class SnapshotRepositoryTest {
             }
         )
         assertTrue(fallbackName.startsWith(slovakContext.getString(R.string.default_scan_name, "").trim()))
-        val snapshotId = originalRepository.createSnapshot(
+        val snapshotId = originalRepository.createSetupSnapshot(
             "Community Day",
             defaultSnapshotName(context, AppLanguage.English, createdAt),
             SnapshotSourceType.MP4,
+            ScanScopeType.FILTERED_SUBSET,
+            "Community Day",
             createdAt
         )
-        val secondId = originalRepository.createSnapshot(null, fallbackName, null, createdAt)
+        val secondId = originalRepository.createSetupSnapshot(
+            "",
+            fallbackName,
+            SnapshotSourceType.LIVE,
+            ScanScopeType.WHOLE_COLLECTION,
+            null,
+            createdAt
+        )
         persistentDatabase.snapshotDao().insertRecord(
             PokemonRecordEntity(
                 id = UUID.randomUUID().toString(),
@@ -101,8 +110,10 @@ class SnapshotRepositoryTest {
             assertEquals("October catches", renamed.name)
             assertEquals(fallbackName, generated.name)
             assertEquals(SnapshotSourceType.MP4, renamed.sourceType)
-            assertEquals(SnapshotLifecycle.PROCESSING, renamed.lifecycle)
+            assertEquals(SnapshotLifecycle.SETUP, renamed.lifecycle)
             assertEquals(null, renamed.scopeCompleteness)
+            assertEquals(ScanScopeType.FILTERED_SUBSET, renamed.scanScopeType)
+            assertEquals("Community Day", renamed.scanScopeDescription)
             assertEquals(1, renamed.recordCount)
             assertEquals(1, renamed.includedRecordCount)
         } finally {
@@ -112,15 +123,19 @@ class SnapshotRepositoryTest {
 
     @Test
     fun deletionCascadesOnlySelectedSnapshotAndItsEvidence() = runBlocking {
-        val deletedId = repository.createSnapshot(
+        val deletedId = repository.createSetupSnapshot(
             "To remove",
             defaultSnapshotName(context, AppLanguage.English),
-            SnapshotSourceType.MP4
+            SnapshotSourceType.MP4,
+            ScanScopeType.WHOLE_COLLECTION,
+            null
         )
-        val retainedId = repository.createSnapshot(
+        val retainedId = repository.createSetupSnapshot(
             "Keep",
             defaultSnapshotName(context, AppLanguage.English),
-            SnapshotSourceType.LIVE
+            SnapshotSourceType.LIVE,
+            ScanScopeType.WHOLE_COLLECTION,
+            null
         )
         val recordId = UUID.randomUUID().toString()
         val evidencePath = repositoryEvidenceFile(deletedId, "species.webp")
@@ -189,6 +204,120 @@ class SnapshotRepositoryTest {
         assertTrue(failed)
         assertTrue(database.snapshotDao().snapshotExists(snapshotId))
         assertTrue(evidence.isFile)
+    }
+
+    @Test
+    fun setupSessionsHaveIndependentIdentityAndCanBeUpdatedWithoutReplacement() = runBlocking {
+        val firstId = repository.createSetupSnapshot(
+            "First",
+            "Scan Sep 25, 2026",
+            SnapshotSourceType.LIVE,
+            ScanScopeType.WHOLE_COLLECTION,
+            null
+        )
+        val secondId = repository.createSetupSnapshot(
+            "Second",
+            "Scan Sep 25, 2026",
+            SnapshotSourceType.MP4,
+            ScanScopeType.FILTERED_SUBSET,
+            "Gym defenders"
+        )
+
+        assertFalse(firstId == secondId)
+        assertTrue(repository.updateSetupSnapshot(
+            firstId,
+            "First updated",
+            SnapshotSourceType.MP4,
+            ScanScopeType.FILTERED_SUBSET,
+            "Tag typed by user"
+        ))
+
+        val stored = repository.observeSnapshots().first()
+        assertEquals(2, stored.size)
+        assertEquals("First updated", stored.single { it.id == firstId }.name)
+        assertEquals(ScanScopeType.FILTERED_SUBSET, stored.single { it.id == firstId }.scanScopeType)
+        assertEquals("Tag typed by user", stored.single { it.id == firstId }.scanScopeDescription)
+        assertEquals("Second", stored.single { it.id == secondId }.name)
+        assertEquals("Gym defenders", stored.single { it.id == secondId }.scanScopeDescription)
+    }
+
+    @Test
+    fun activeJobPreventsStartingAnotherJobOrCreatingAnotherSetup() = runBlocking {
+        val firstSetupId = repository.createSetupSnapshot(
+            "Ready to start",
+            "Scan Sep 25, 2026",
+            SnapshotSourceType.LIVE,
+            ScanScopeType.WHOLE_COLLECTION,
+            null
+        )
+        val secondSetupId = repository.createSetupSnapshot(
+            "Waiting setup",
+            "Scan Sep 25, 2026",
+            SnapshotSourceType.MP4,
+            ScanScopeType.WHOLE_COLLECTION,
+            null
+        )
+
+        assertTrue(repository.startProcessing(firstSetupId))
+        assertFalse(repository.startProcessing(secondSetupId))
+        assertTrue(runCatching {
+            repository.createSnapshot("Another job", "Scan Sep 25, 2026", SnapshotSourceType.MP4)
+        }.exceptionOrNull() is ActiveScanJobException)
+        assertTrue(runCatching {
+            repository.createSetupSnapshot(
+                "Another setup",
+                "Scan Sep 25, 2026",
+                SnapshotSourceType.MP4,
+                ScanScopeType.WHOLE_COLLECTION,
+                null
+            )
+        }.exceptionOrNull() is ActiveScanJobException)
+        assertEquals(setOf(firstSetupId, secondSetupId), repository.observeSnapshots().first().map { it.id }.toSet())
+    }
+
+    @Test
+    fun blankSetupNameUsesCreationLanguageAndUnsafeNamesAreRejected() = runBlocking {
+        val createdAt = LocalDate.of(2026, 9, 25).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val slovakName = defaultSnapshotName(context, AppLanguage.Slovak, createdAt)
+        val snapshotId = repository.createSetupSnapshot(
+            " \t ",
+            slovakName,
+            SnapshotSourceType.LIVE,
+            ScanScopeType.WHOLE_COLLECTION,
+            null,
+            createdAt
+        )
+        val englishName = defaultSnapshotName(context, AppLanguage.English, createdAt)
+        val englishId = repository.createSetupSnapshot(
+            "",
+            englishName,
+            SnapshotSourceType.MP4,
+            ScanScopeType.WHOLE_COLLECTION,
+            null,
+            createdAt
+        )
+
+        val storedNames = repository.observeSnapshots().first().associate { it.id to it.name }
+        assertEquals(slovakName, storedNames[snapshotId])
+        assertEquals(englishName, storedNames[englishId])
+        assertTrue(runCatching {
+            repository.createSetupSnapshot(
+                "Bad\u0000Name",
+                "Scan Sep 25, 2026",
+                SnapshotSourceType.LIVE,
+                ScanScopeType.WHOLE_COLLECTION,
+                null
+            )
+        }.isFailure)
+        assertTrue(runCatching {
+            repository.createSetupSnapshot(
+                "x".repeat(MAX_SCAN_NAME_LENGTH + 1),
+                "Scan Sep 25, 2026",
+                SnapshotSourceType.LIVE,
+                ScanScopeType.WHOLE_COLLECTION,
+                null
+            )
+        }.isFailure)
     }
 
     private fun repositoryEvidenceFile(snapshotId: String, name: String): File =

@@ -45,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -81,7 +82,11 @@ import com.falconsocka.pokeandscan.ui.theme.AppShapes
 import com.falconsocka.pokeandscan.ui.theme.focusOutline
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,7 +118,6 @@ private sealed class AppDestination(
     data object Library : AppDestination("library", R.string.library_title, ScreenIllustrationPool.ScansEmpty)
     data object SnapshotDetail : AppDestination("snapshot", R.string.library_title)
     data object NewScan : AppDestination("new-scan", R.string.new_scan_title, ScreenIllustrationPool.NewScan)
-    data object ScanPreparation : AppDestination("scan-preparation", R.string.preparation_title, ScreenIllustrationPool.Preparation)
     data object Settings : AppDestination("settings", R.string.settings_title)
 
     companion object {
@@ -122,18 +126,20 @@ private sealed class AppDestination(
             route == Welcome.route -> Welcome
             route == CaptureExplanation.route -> CaptureExplanation
             route == OnboardingPreparation.route -> OnboardingPreparation
-            route == NewScan.route -> NewScan
-            route == ScanPreparation.route -> ScanPreparation
+            route == NewScan.route || route?.startsWith("${NewScan.route}/") == true -> NewScan
             route == Settings.route -> Settings
             else -> Library
         }
     }
 }
 
-private enum class CaptureSource {
-    LiveCapture,
-    Mp4Import
-}
+private data class ScanSetupDraft(
+    val snapshotId: String?,
+    val name: String,
+    val scopeType: ScanScopeType,
+    val scopeDescription: String?,
+    val sourceType: SnapshotSourceType
+)
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -168,6 +174,21 @@ fun PokeAndScanApp(preferences: AppPreferences) {
     val currentDestination = AppDestination.fromRoute(backStackEntry?.destination?.route)
     val activeSnapshotId = backStackEntry?.arguments?.getString("snapshotId")
     val activeSnapshot = snapshots?.firstOrNull { it.id == activeSnapshotId }
+    LaunchedEffect(backStackEntry?.id, snapshotRepository) {
+        if (currentDestination == AppDestination.Library) {
+            try {
+                snapshots = snapshotRepository.observeSnapshots().first()
+                snapshotsLoadError = false
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                snapshotsLoadError = true
+            }
+        }
+    }
+    val activeJob = snapshots?.any {
+        it.lifecycle == SnapshotLifecycle.PROCESSING || it.lifecycle == SnapshotLifecycle.INCOMPLETE
+    } == true
     val illustrationSelector = remember { ScreenIllustrationSelector() }
     val selectedIllustration = remember(backStackEntry?.id, currentDestination.illustrationPool) {
         currentDestination.illustrationPool?.let(illustrationSelector::select)
@@ -176,13 +197,39 @@ fun PokeAndScanApp(preferences: AppPreferences) {
         mutableStateOf(preferences.languageOrDefault())
     }
     var theme by remember { mutableStateOf(preferences.theme()) }
-    var selectedCaptureSource by remember { mutableStateOf(CaptureSource.LiveCapture) }
-    var scanName by remember(language) { mutableStateOf(defaultSnapshotName(context, language)) }
     val finishOnboarding: () -> Unit = {
         preferences.completeOnboarding()
         navController.navigate(AppDestination.Library.route) {
             popUpTo(AppDestination.Welcome.route) { inclusive = true }
             launchSingleTop = true
+        }
+    }
+    val saveSetup: suspend (ScanSetupDraft) -> String = { draft ->
+        val id = if (draft.snapshotId == null) {
+            snapshotRepository.createSetupSnapshot(
+                displayName = draft.name,
+                fallbackName = defaultSnapshotName(context, language),
+                sourceType = draft.sourceType,
+                scanScopeType = draft.scopeType,
+                scanScopeDescription = draft.scopeDescription
+            )
+        } else {
+            check(snapshotRepository.updateSetupSnapshot(
+                snapshotId = draft.snapshotId,
+                displayName = draft.name,
+                sourceType = draft.sourceType,
+                scanScopeType = draft.scopeType,
+                scanScopeDescription = draft.scopeDescription
+            ))
+            draft.snapshotId
+        }
+        val refreshedSnapshots = snapshotRepository.observeSnapshots().first()
+        withContext(Dispatchers.Main.immediate) { snapshots = refreshedSnapshots }
+        id
+    }
+    val returnToLibrary: () -> Unit = {
+        if (!navController.popBackStack(AppDestination.Library.route, false)) {
+            navController.navigate(AppDestination.Library.route) { launchSingleTop = true }
         }
     }
 
@@ -310,6 +357,8 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                                 sourceType = it.sourceType,
                                 lifecycle = it.lifecycle,
                                 scopeCompleteness = it.scopeCompleteness,
+                                scanScopeType = it.scanScopeType,
+                                scanScopeDescription = it.scanScopeDescription,
                                 recordCount = it.recordCount,
                                 includedRecordCount = it.includedRecordCount,
                                 reviewCount = it.reviewCount,
@@ -321,12 +370,17 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         var screenIsDeleting by remember(snapshotId) { mutableStateOf(false) }
                         SnapshotDetailScreen(
                             snapshot = detail,
-                            loading = snapshots == null,
+                            loading = snapshots == null && !snapshotsLoadError,
                             loadingError = snapshotsLoadError,
                             operationError = screenOperationError,
                             isDeleting = screenIsDeleting,
                             onBackToLibrary = { navController.popBackStack(AppDestination.Library.route, false) },
                             onRetry = { snapshotRetryCount++ },
+                            onContinueSetup = {
+                                if (snapshotId != null) {
+                                    navController.navigate("${AppDestination.NewScan.route}/$snapshotId")
+                                }
+                            },
                             onRename = { name ->
                                 if (snapshotId != null) coroutineScope.launch {
                                     screenOperationError = try {
@@ -355,29 +409,71 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                             }
                         )
                     }
-                    composable(AppDestination.NewScan.route) {
-                        NewScanScreen(
+                    composable(AppDestination.NewScan.route) { entry ->
+                        val sessionId by entry.savedStateHandle
+                            .getStateFlow<String?>("setupSessionId", null)
+                            .collectAsState()
+                        val isPreparing by entry.savedStateHandle
+                            .getStateFlow("scanPreparation", false)
+                            .collectAsState()
+                        val setup = snapshots?.firstOrNull {
+                            it.id == sessionId && it.lifecycle == SnapshotLifecycle.SETUP
+                        }
+                        ScanSetupDestination(
                             illustrationRes = illustrationResource
                                 ?: ScreenIllustrationPool.NewScan.options.first().resourceFor(darkTheme),
-                            scanName = scanName,
-                            onScanNameChange = { scanName = it },
-                            selectedSource = selectedCaptureSource,
-                            onSourceSelected = { selectedCaptureSource = it },
-                            onPreparation = { navController.navigate(AppDestination.ScanPreparation.route) }
+                            preparationIllustrationRes = ScreenIllustrationPool.Preparation.options
+                                .first().resourceFor(darkTheme),
+                            operationScope = coroutineScope,
+                            sessionId = sessionId,
+                            savedSetup = setup,
+                            isPreparing = isPreparing,
+                            onPreparingChange = { entry.savedStateHandle["scanPreparation"] = it },
+                            language = language,
+                            activeJob = activeJob,
+                            loading = snapshots == null && !snapshotsLoadError,
+                            loadingError = snapshotsLoadError,
+                            onRetry = { snapshotRetryCount++ },
+                            onBackToLibrary = returnToLibrary,
+                            onContinue = { entry.savedStateHandle["scanPreparation"] = true },
+                            onSaveSetup = { draft, openPreparation ->
+                                val id = saveSetup(draft)
+                                if (draft.snapshotId == null && openPreparation) {
+                                    entry.savedStateHandle["setupSessionId"] = id
+                                }
+                                id
+                            }
                         )
                     }
-                    composable(AppDestination.ScanPreparation.route) {
-                        PreparationScreen(
+                    composable(
+                        route = "${AppDestination.NewScan.route}/{sessionId}",
+                        arguments = listOf(navArgument("sessionId") { type = NavType.StringType })
+                    ) { entry ->
+                        val sessionId = entry.arguments?.getString("sessionId")
+                        val isPreparing by entry.savedStateHandle
+                            .getStateFlow("scanPreparation", false)
+                            .collectAsState()
+                        val setup = snapshots?.firstOrNull {
+                            it.id == sessionId && it.lifecycle == SnapshotLifecycle.SETUP
+                        }
+                        ScanSetupDestination(
                             illustrationRes = illustrationResource
-                                ?: ScreenIllustrationPool.Preparation.options.first().resourceFor(darkTheme),
-                            introRes = R.string.scan_preparation_intro,
-                            selectedSourceLabelRes = when (selectedCaptureSource) {
-                                CaptureSource.LiveCapture -> R.string.live_capture_title
-                                CaptureSource.Mp4Import -> R.string.mp4_import_title
-                            },
-                            continueLabelRes = R.string.action_im_ready,
-                            onBack = { navController.popBackStack() },
-                            onContinue = { navController.popBackStack() }
+                                ?: ScreenIllustrationPool.NewScan.options.first().resourceFor(darkTheme),
+                            preparationIllustrationRes = ScreenIllustrationPool.Preparation.options
+                                .first().resourceFor(darkTheme),
+                            operationScope = coroutineScope,
+                            sessionId = sessionId,
+                            savedSetup = setup,
+                            isPreparing = isPreparing,
+                            onPreparingChange = { entry.savedStateHandle["scanPreparation"] = it },
+                            language = language,
+                            activeJob = activeJob,
+                            loading = snapshots == null && !snapshotsLoadError,
+                            loadingError = snapshotsLoadError,
+                            onRetry = { snapshotRetryCount++ },
+                            onBackToLibrary = returnToLibrary,
+                            onContinue = { entry.savedStateHandle["scanPreparation"] = true },
+                            onSaveSetup = { draft, _ -> saveSetup(draft) }
                         )
                     }
                     composable(AppDestination.Settings.route) {
@@ -409,6 +505,226 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> if (baseContext === this) null else baseContext.findActivity()
     else -> null
+}
+
+@Composable
+private fun ScanSetupDestination(
+    illustrationRes: Int,
+    preparationIllustrationRes: Int,
+    operationScope: CoroutineScope,
+    sessionId: String?,
+    savedSetup: SnapshotSummary?,
+    isPreparing: Boolean,
+    onPreparingChange: (Boolean) -> Unit,
+    language: AppLanguage,
+    activeJob: Boolean,
+    loading: Boolean,
+    loadingError: Boolean,
+    onRetry: () -> Unit,
+    onBackToLibrary: () -> Unit,
+    onContinue: () -> Unit,
+    onSaveSetup: suspend (ScanSetupDraft, openPreparation: Boolean) -> String
+) {
+    val context = LocalContext.current
+    val formKey = sessionId ?: "new"
+    var scanName by remember(formKey, savedSetup?.id) { mutableStateOf(savedSetup?.name.orEmpty()) }
+    var scopeType by remember(formKey, savedSetup?.id) {
+        mutableStateOf(savedSetup?.scanScopeType ?: ScanScopeType.WHOLE_COLLECTION)
+    }
+    var scopeDescription by remember(formKey, savedSetup?.id) {
+        mutableStateOf(savedSetup?.scanScopeDescription.orEmpty())
+    }
+    var selectedSource by remember(formKey, savedSetup?.id) {
+        mutableStateOf(savedSetup?.sourceType ?: SnapshotSourceType.LIVE)
+    }
+    var nameIssue by remember(formKey) { mutableStateOf<SnapshotNameIssue?>(null) }
+    var scopeDescriptionIssue by remember(formKey) { mutableStateOf(false) }
+    var isSaving by remember(formKey) { mutableStateOf(false) }
+    var saveError by remember(formKey) { mutableStateOf<Int?>(null) }
+    var hasEditedSetup by remember(formKey) { mutableStateOf(false) }
+
+    val validateForm: (Boolean) -> Boolean = { requireCompleteScope ->
+        val enteredNameIssue = snapshotNameIssue(scanName)
+        val invalidScopeDescription = scopeType == ScanScopeType.FILTERED_SUBSET &&
+            (scopeDescription.any(Char::isISOControl) ||
+                (requireCompleteScope && scopeDescription.isBlank()))
+        when {
+            enteredNameIssue != null -> {
+                nameIssue = enteredNameIssue
+                false
+            }
+            invalidScopeDescription -> {
+                scopeDescriptionIssue = true
+                false
+            }
+            else -> true
+        }
+    }
+    val draft = ScanSetupDraft(
+        snapshotId = sessionId,
+        name = scanName,
+        scopeType = scopeType,
+        scopeDescription = scopeDescription.takeIf { scopeType == ScanScopeType.FILTERED_SUBSET },
+        sourceType = selectedSource
+    )
+    val leaveSetup: () -> Unit = {
+        if (isSaving) {
+            Unit
+        } else if (sessionId == null && !hasEditedSetup) {
+            onBackToLibrary()
+        } else {
+            val draftToSave = draft.copy(
+                name = draft.name.takeIf { snapshotNameIssue(it) == null }.orEmpty(),
+                scopeDescription = draft.scopeDescription?.takeIf { value ->
+                    value.none(Char::isISOControl)
+                }
+            )
+            operationScope.launch {
+                isSaving = true
+                saveError = null
+                try {
+                    onSaveSetup(draftToSave, false)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: ActiveScanJobException) {
+                    saveError = R.string.snapshot_active_job_notice
+                    return@launch
+                } catch (_: Exception) {
+                    saveError = R.string.scan_setup_save_error
+                    return@launch
+                } finally {
+                    isSaving = false
+                }
+                withContext(Dispatchers.Main.immediate) { onBackToLibrary() }
+            }
+        }
+    }
+
+    BackHandler(enabled = true) {
+        when {
+            isPreparing -> onPreparingChange(false)
+            sessionId != null && savedSetup == null -> onBackToLibrary()
+            else -> leaveSetup()
+        }
+    }
+
+    if (sessionId != null && savedSetup == null) {
+        ScanSetupLoadingOrMissing(
+            loading = loading,
+            loadingError = loadingError,
+            onRetry = onRetry,
+            onBack = onBackToLibrary
+        )
+        return
+    }
+
+    if (isPreparing) {
+        PreparationScreen(
+            illustrationRes = preparationIllustrationRes,
+            headingRes = R.string.preparation_title,
+            introRes = R.string.scan_preparation_intro,
+            selectedSourceLabelRes = if (selectedSource == SnapshotSourceType.LIVE) {
+                R.string.live_capture_title
+            } else {
+                R.string.mp4_import_title
+            },
+            continueLabelRes = R.string.capture_source_unavailable_action,
+            continueEnabled = false,
+            sourceUnavailable = true,
+            onBack = { onPreparingChange(false) },
+            onContinue = {}
+        )
+        return
+    }
+
+    NewScanScreen(
+        illustrationRes = illustrationRes,
+        scanName = scanName,
+        namePlaceholder = defaultSnapshotName(context, language),
+        nameErrorRes = when (nameIssue) {
+            SnapshotNameIssue.TOO_LONG -> R.string.scan_name_too_long
+            SnapshotNameIssue.UNSAFE_CHARACTERS -> R.string.scan_name_unsafe_characters
+            null -> null
+        },
+        onScanNameChange = {
+            hasEditedSetup = true
+            scanName = it
+            nameIssue = null
+            saveError = null
+        },
+        scopeType = scopeType,
+        onScopeTypeSelected = {
+            hasEditedSetup = true
+            scopeType = it
+            scopeDescriptionIssue = false
+            saveError = null
+        },
+        scopeDescription = scopeDescription,
+        onScopeDescriptionChange = {
+            hasEditedSetup = true
+            scopeDescription = it
+            scopeDescriptionIssue = false
+            saveError = null
+        },
+        scopeDescriptionError = scopeDescriptionIssue,
+        selectedSource = selectedSource,
+        onSourceSelected = {
+            hasEditedSetup = true
+            selectedSource = it
+            saveError = null
+        },
+        activeJob = activeJob,
+        isSaving = isSaving,
+        saveErrorRes = saveError,
+        onBackToLibrary = leaveSetup,
+        onPreparation = {
+            if (isSaving) return@NewScanScreen
+            if (!validateForm(true)) return@NewScanScreen
+            operationScope.launch {
+                isSaving = true
+                saveError = null
+                try {
+                    onSaveSetup(draft, true)
+                    withContext(Dispatchers.Main.immediate) { onContinue() }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: ActiveScanJobException) {
+                    saveError = R.string.snapshot_active_job_notice
+                } catch (_: Exception) {
+                    saveError = R.string.scan_setup_save_error
+                } finally {
+                    isSaving = false
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun ScanSetupLoadingOrMissing(
+    loading: Boolean,
+    loadingError: Boolean,
+    onRetry: () -> Unit,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(AppSpacing.screen),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.medium),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (loading) {
+            androidx.compose.material3.CircularProgressIndicator()
+            Text(stringResource(R.string.snapshot_loading))
+        } else if (loadingError) {
+            Text(stringResource(R.string.snapshot_load_error_body))
+            QuietActionButton(onClick = onRetry) { Text(stringResource(R.string.snapshot_retry_action)) }
+            QuietActionButton(onClick = onBack) { Text(stringResource(R.string.snapshot_back_to_library)) }
+        } else {
+            Text(stringResource(R.string.snapshot_missing_body))
+            QuietActionButton(onClick = onRetry) { Text(stringResource(R.string.snapshot_retry_action)) }
+            QuietActionButton(onClick = onBack) { Text(stringResource(R.string.snapshot_back_to_library)) }
+        }
+    }
 }
 
 @Composable
@@ -524,15 +840,26 @@ private fun CaptureExplanationScreen(
 private fun PreparationScreen(
     illustrationRes: Int,
     modifier: Modifier = Modifier,
+    headingRes: Int? = null,
     introRes: Int = R.string.preparation_intro,
     selectedSourceLabelRes: Int? = null,
     continueLabelRes: Int = R.string.action_continue,
+    continueEnabled: Boolean = true,
+    sourceUnavailable: Boolean = false,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
     val context = LocalContext.current
     val pokemonGoNotFoundMessage = stringResource(R.string.pokemon_go_not_found)
     ScrollableScreenColumn(modifier = modifier) {
+        headingRes?.let { titleRes ->
+            Text(
+                text = stringResource(titleRes),
+                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center
+            )
+        }
         IllustrationArtwork(illustrationRes, height = 184.dp)
         Text(
             stringResource(introRes),
@@ -555,6 +882,14 @@ private fun PreparationScreen(
                 )
             }
         }
+        if (sourceUnavailable) {
+            Text(
+                stringResource(R.string.capture_source_unavailable_body),
+                modifier = Modifier.fillMaxWidth().clip(AppShapes.card).padding(AppSpacing.large),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
         GuidanceSection(stringResource(R.string.reference_setup_title), stringResource(R.string.reference_setup_details))
         GuidanceSection(stringResource(R.string.scan_scope_title), stringResource(R.string.scan_scope_details))
         GuidanceSection(stringResource(R.string.nickname_warning_title), stringResource(R.string.nickname_warning_details))
@@ -571,6 +906,7 @@ private fun PreparationScreen(
         }
         PrimaryActionButton(
             onClick = onContinue,
+            enabled = continueEnabled,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(continueLabelRes))
@@ -588,9 +924,20 @@ private fun PreparationScreen(
 private fun NewScanScreen(
     illustrationRes: Int,
     scanName: String,
+    namePlaceholder: String,
+    nameErrorRes: Int?,
     onScanNameChange: (String) -> Unit,
-    selectedSource: CaptureSource,
-    onSourceSelected: (CaptureSource) -> Unit,
+    scopeType: ScanScopeType,
+    onScopeTypeSelected: (ScanScopeType) -> Unit,
+    scopeDescription: String,
+    onScopeDescriptionChange: (String) -> Unit,
+    scopeDescriptionError: Boolean,
+    selectedSource: SnapshotSourceType,
+    onSourceSelected: (SnapshotSourceType) -> Unit,
+    activeJob: Boolean,
+    isSaving: Boolean,
+    saveErrorRes: Int?,
+    onBackToLibrary: () -> Unit,
     modifier: Modifier = Modifier,
     onPreparation: () -> Unit
 ) {
@@ -623,73 +970,110 @@ private fun NewScanScreen(
                         textAlign = TextAlign.Center
                     )
                 }
-                QuietActionButton(
-                    onClick = onPreparation,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Text(stringResource(R.string.review_preparation))
-                }
                 OutlinedTextField(
                     value = scanName,
                     onValueChange = onScanNameChange,
                     modifier = Modifier.fillMaxWidth().focusOutline(AppShapes.control),
                     label = { Text(stringResource(R.string.scan_name_optional)) },
+                    placeholder = { Text(namePlaceholder) },
+                    supportingText = {
+                        Text(stringResource(nameErrorRes ?: R.string.scan_name_helper))
+                    },
+                    isError = nameErrorRes != null,
                     singleLine = true,
                     shape = AppShapes.control
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(stringResource(R.string.scan_scope_title), style = MaterialTheme.typography.titleLarge)
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = AppShapes.card,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = AppSpacing.large),
-                            verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)
-                        ) {
-                            Text(stringResource(R.string.appraisal_scope), style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                stringResource(R.string.appraisal_scope_fields),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    SelectionOptionCard(
+                        title = stringResource(R.string.scan_scope_whole_collection),
+                        body = stringResource(R.string.scan_scope_whole_collection_description),
+                        selected = scopeType == ScanScopeType.WHOLE_COLLECTION,
+                        onClick = { onScopeTypeSelected(ScanScopeType.WHOLE_COLLECTION) }
+                    )
+                    SelectionOptionCard(
+                        title = stringResource(R.string.scan_scope_filtered_subset),
+                        body = stringResource(R.string.scan_scope_filtered_subset_description),
+                        selected = scopeType == ScanScopeType.FILTERED_SUBSET,
+                        onClick = { onScopeTypeSelected(ScanScopeType.FILTERED_SUBSET) }
+                    )
+                    if (scopeType == ScanScopeType.FILTERED_SUBSET) {
+                        OutlinedTextField(
+                            value = scopeDescription,
+                            onValueChange = onScopeDescriptionChange,
+                            modifier = Modifier.fillMaxWidth().focusOutline(AppShapes.control),
+                            label = { Text(stringResource(R.string.scan_scope_description_label)) },
+                            supportingText = {
+                                Text(stringResource(
+                                    if (scopeDescriptionError) R.string.scan_scope_description_required
+                                    else R.string.scan_scope_description_helper
+                                ))
+                            },
+                            isError = scopeDescriptionError,
+                            singleLine = true,
+                            shape = AppShapes.control
+                        )
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(stringResource(R.string.capture_source_title), style = MaterialTheme.typography.titleLarge)
-                    CaptureSourceCard(
+                    SelectionOptionCard(
                         title = stringResource(R.string.live_capture_title),
                         body = stringResource(R.string.live_capture_description),
                         recommendation = stringResource(R.string.recommended_label),
-                        selected = selectedSource == CaptureSource.LiveCapture,
-                        onClick = { onSourceSelected(CaptureSource.LiveCapture) }
+                        statusLabel = stringResource(R.string.capture_source_not_available),
+                        selected = selectedSource == SnapshotSourceType.LIVE,
+                        onClick = { onSourceSelected(SnapshotSourceType.LIVE) }
                     )
-                    CaptureSourceCard(
+                    SelectionOptionCard(
                         title = stringResource(R.string.mp4_import_title),
                         body = stringResource(R.string.mp4_import_description),
-                        selected = selectedSource == CaptureSource.Mp4Import,
-                        onClick = { onSourceSelected(CaptureSource.Mp4Import) }
+                        statusLabel = stringResource(R.string.capture_source_not_available),
+                        selected = selectedSource == SnapshotSourceType.MP4,
+                        onClick = { onSourceSelected(SnapshotSourceType.MP4) }
                     )
                 }
             }
         }
+        if (activeJob) {
+            Text(
+                stringResource(R.string.snapshot_active_job_notice),
+                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        saveErrorRes?.let {
+            Text(
+                stringResource(it),
+                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
         PrimaryActionButton(
             onClick = onPreparation,
+            enabled = !activeJob && !isSaving,
             modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen, vertical = AppSpacing.medium)
         ) {
-            Text(stringResource(R.string.action_continue))
+            Text(stringResource(if (isSaving) R.string.scan_setup_saving else R.string.action_continue))
+        }
+        QuietActionButton(
+            onClick = onBackToLibrary,
+            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen).padding(bottom = AppSpacing.small)
+        ) {
+            Text(stringResource(R.string.snapshot_back_to_library))
         }
     }
 }
 
 @Composable
-private fun CaptureSourceCard(
+private fun SelectionOptionCard(
     title: String,
     body: String,
     selected: Boolean,
     recommendation: String? = null,
+    statusLabel: String? = null,
     onClick: () -> Unit
 ) {
     val shape = AppShapes.card
@@ -713,17 +1097,26 @@ private fun CaptureSourceCard(
         ) {
             RadioButton(selected = selected, onClick = null)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium)
-                    recommendation?.let {
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                        Text(title, style = MaterialTheme.typography.titleMedium)
+                        recommendation?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    statusLabel?.let {
                         Text(
                             it,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
+                    Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

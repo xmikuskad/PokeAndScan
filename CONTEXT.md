@@ -7,7 +7,7 @@ This is a glossary. Product rules, UI details, and implementation contracts live
 ## Scanning
 
 **Scan session**:
-A single user-initiated run that produces one independent collection result. A session may use live screen capture or an imported screen recording.
+A single user-initiated run that produces one independent collection result. Continuing setup reserves one persistent identity before capture; its `SETUP` state can be resumed and is not an active job. A session may use live screen capture or an imported screen recording.
 
 **Imported source video**:
 An MP4 selected by the user and processed in place rather than copied into PokeAndScan. The app keeps access only while processing or while the scan remains incomplete for recovery, then releases it when the scan is finalized or discarded. Reprocessing later requires the user to select the source again.
@@ -19,7 +19,7 @@ MVP snapshots, review history, and evidence remain in PokeAndScan's app storage 
 The collection result produced by one scan session. Snapshots remain separate; a later scan does not silently merge into or overwrite an earlier snapshot.
 
 **Snapshot library**:
-The app's home view listing independent snapshots and any active or recoverable job. It is an organizational view, not a merged master collection; each snapshot remains separately viewable, editable, and exportable. Cards use names, dates, source/status symbols, lifecycle/scope labels, and compact quality counts rather than source-video or screenshot thumbnails.
+The app's home view listing independent snapshots, saved setups, and any active or recoverable job. It is an organizational view, not a merged master collection; each snapshot remains separately viewable, editable, and exportable. Cards use names, dates, source/status symbols, lifecycle/scope labels, and compact quality counts rather than source-video or screenshot thumbnails.
 
 User-facing Slovak labels use `sken`/`skeny` and English labels use `scan`/`scans` for this concept. `Snapshot` remains the internal/domain term and is not the normal UI noun.
 
@@ -32,7 +32,7 @@ Snapshots remain locally editable after processing and export. An export is a po
 A planned traversal of Pokémon GO screens focused on one family of fields. The first MVP has an appraisal pass for species, CP, and IVs.
 
 **Scan scope**:
-The intended subset of the in-game collection for one scan. It may be the whole collection or a user-prepared filtered subset, such as Pokémon with a chosen tag. PokeAndScan records the visible results but does not interpret or persist the game's filter/tag definition as a separate domain object in the MVP.
+The intended subset of the in-game collection for one scan. It may be the whole collection or a user-prepared filtered subset, such as Pokémon with a chosen tag. The app saves only the description the user types; it does not inspect or infer the game's filter/tag name or definition.
 
 **Reference profile**:
 The only verified MVP setup for layout and parser support: Pixel 9 Pro XL, portrait orientation, English Pokémon GO UI, and default Android display and font settings. This verification scope applies to MVP only; installation on other Android devices does not imply verified scanning support. Later expansion will verify additional Android phone models, always for Pokémon GO. A reference requirement is not presented as detected fact unless the app can genuinely verify it.
@@ -106,7 +106,7 @@ Record status is presented to users as `Ready`, `Needs review`, `Partial`, or `E
 A scan session interrupted unexpectedly before normal finalization. Its persisted results remain available, and the user may resume it, finish it as a partial snapshot, or discard it explicitly. A user Stop finalizes the saved live result with `PARTIAL` scope instead.
 
 **Snapshot lifecycle**:
-The small lifecycle of a scan result: `PROCESSING` while capture/processing is active, `INCOMPLETE` after an unexpected or not-yet-finalized interruption, and `COMPLETE` after normal processing finishes or the user finalizes a recovered result. A complete snapshot may have unverified scope or warnings. Discarding removes the incomplete result instead of keeping a long-lived discarded state.
+The lifecycle of an independent scan result: `SETUP` after the user saves setup and before capture starts, `PROCESSING` while capture/processing is active, `INCOMPLETE` after an unexpected or not-yet-finalized interruption, and `COMPLETE` after normal processing finishes or the user finalizes a recovered result. A `SETUP` result is resumable but is not an active job. A complete snapshot may have unverified scope or warnings. Discarding removes the incomplete result instead of keeping a long-lived discarded state.
 
 **Scope completeness**:
 Whether a finalized snapshot reached a positively detected end of the intended traversal (`INTENDED_RANGE`) or was stopped before that point (`PARTIAL`). Scope completeness is separate from lifecycle and data quality.

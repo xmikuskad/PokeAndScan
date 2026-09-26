@@ -14,10 +14,13 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.room.withTransaction
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
-enum class SnapshotLifecycle { PROCESSING, INCOMPLETE, COMPLETE }
+enum class SnapshotLifecycle { SETUP, PROCESSING, INCOMPLETE, COMPLETE }
 enum class SnapshotScopeCompleteness { INTENDED_RANGE, PARTIAL }
+enum class ScanScopeType { WHOLE_COLLECTION, FILTERED_SUBSET }
 enum class SnapshotSourceType { LIVE, MP4 }
 enum class SnapshotRecordStatus { READY, NEEDS_REVIEW, PARTIAL, EXCLUDED }
 
@@ -28,7 +31,9 @@ data class SnapshotEntity(
     val createdAtMillis: Long,
     val sourceType: SnapshotSourceType?,
     val lifecycle: SnapshotLifecycle,
-    val scopeCompleteness: SnapshotScopeCompleteness?
+    val scopeCompleteness: SnapshotScopeCompleteness?,
+    val scanScopeType: ScanScopeType? = null,
+    val scanScopeDescription: String? = null
 )
 
 @Entity(
@@ -135,6 +140,8 @@ data class SnapshotSummary(
     val sourceType: SnapshotSourceType?,
     val lifecycle: SnapshotLifecycle,
     val scopeCompleteness: SnapshotScopeCompleteness?,
+    val scanScopeType: ScanScopeType?,
+    val scanScopeDescription: String?,
     val recordCount: Int,
     val includedRecordCount: Int,
     val reviewCount: Int,
@@ -149,6 +156,8 @@ data class SnapshotDetailSummary(
     val sourceType: SnapshotSourceType?,
     val lifecycle: SnapshotLifecycle,
     val scopeCompleteness: SnapshotScopeCompleteness?,
+    val scanScopeType: ScanScopeType?,
+    val scanScopeDescription: String?,
     val recordCount: Int,
     val includedRecordCount: Int,
     val reviewCount: Int,
@@ -166,6 +175,8 @@ interface SnapshotDao {
                s.sourceType AS sourceType,
                s.lifecycle AS lifecycle,
                s.scopeCompleteness AS scopeCompleteness,
+               s.scanScopeType AS scanScopeType,
+               s.scanScopeDescription AS scanScopeDescription,
                (SELECT COUNT(*) FROM pokemon_records r WHERE r.snapshotId = s.id) AS recordCount,
                (SELECT COUNT(*) FROM pokemon_records r WHERE r.snapshotId = s.id AND r.status != 'EXCLUDED') AS includedRecordCount,
                (SELECT COUNT(*) FROM review_issues i WHERE i.snapshotId = s.id AND i.isResolved = 0) AS reviewCount,
@@ -185,6 +196,8 @@ interface SnapshotDao {
                s.sourceType AS sourceType,
                s.lifecycle AS lifecycle,
                s.scopeCompleteness AS scopeCompleteness,
+               s.scanScopeType AS scanScopeType,
+               s.scanScopeDescription AS scanScopeDescription,
                (SELECT COUNT(*) FROM pokemon_records r WHERE r.snapshotId = s.id) AS recordCount,
                (SELECT COUNT(*) FROM pokemon_records r WHERE r.snapshotId = s.id AND r.status != 'EXCLUDED') AS includedRecordCount,
                (SELECT COUNT(*) FROM review_issues i WHERE i.snapshotId = s.id AND i.isResolved = 0) AS reviewCount,
@@ -215,8 +228,35 @@ interface SnapshotDao {
     @Query("UPDATE snapshots SET name = :name WHERE id = :snapshotId")
     suspend fun renameSnapshot(snapshotId: String, name: String): Int
 
+    @Query("""
+        UPDATE snapshots
+        SET name = :name, sourceType = :sourceType, scanScopeType = :scanScopeType,
+            scanScopeDescription = :scanScopeDescription
+        WHERE id = :snapshotId AND lifecycle = 'SETUP'
+    """)
+    suspend fun updateSetupSnapshot(
+        snapshotId: String,
+        name: String,
+        sourceType: SnapshotSourceType,
+        scanScopeType: ScanScopeType,
+        scanScopeDescription: String?
+    ): Int
+
+    @Query("SELECT EXISTS(SELECT 1 FROM snapshots WHERE lifecycle IN ('PROCESSING', 'INCOMPLETE'))")
+    suspend fun hasActiveOrRecoverableJob(): Boolean
+
+    @Query("UPDATE snapshots SET lifecycle = :lifecycle WHERE id = :snapshotId AND lifecycle = :expectedLifecycle")
+    suspend fun updateLifecycle(
+        snapshotId: String,
+        expectedLifecycle: SnapshotLifecycle,
+        lifecycle: SnapshotLifecycle
+    ): Int
+
     @Query("SELECT EXISTS(SELECT 1 FROM snapshots WHERE id = :snapshotId)")
     suspend fun snapshotExists(snapshotId: String): Boolean
+
+    @Query("SELECT name FROM snapshots WHERE id = :snapshotId AND lifecycle = 'SETUP' LIMIT 1")
+    suspend fun setupSnapshotName(snapshotId: String): String?
 
     @Query("SELECT COUNT(*) FROM pokemon_records WHERE snapshotId = :snapshotId")
     suspend fun recordCount(snapshotId: String): Int
@@ -254,6 +294,12 @@ class SnapshotConverters {
     fun sourceFromString(value: String?): SnapshotSourceType? = value?.let(SnapshotSourceType::valueOf)
 
     @TypeConverter
+    fun scanScopeToString(value: ScanScopeType?): String? = value?.name
+
+    @TypeConverter
+    fun scanScopeFromString(value: String?): ScanScopeType? = value?.let(ScanScopeType::valueOf)
+
+    @TypeConverter
     fun recordStatusToString(value: SnapshotRecordStatus?): String? = value?.name
 
     @TypeConverter
@@ -268,7 +314,7 @@ class SnapshotConverters {
         EvidenceCropEntity::class,
         SnapshotWarningEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(SnapshotConverters::class)
@@ -284,7 +330,14 @@ abstract class SnapshotDatabase : RoomDatabase() {
                 context.applicationContext,
                 SnapshotDatabase::class.java,
                 "pokeandscan_snapshots.db"
-            ).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+        }
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE snapshots ADD COLUMN scanScopeType TEXT")
+                db.execSQL("ALTER TABLE snapshots ADD COLUMN scanScopeDescription TEXT")
+            }
         }
     }
 }

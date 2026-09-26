@@ -8,6 +8,24 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
+internal const val MAX_SCAN_NAME_LENGTH = 80
+
+internal enum class SnapshotNameIssue {
+    TOO_LONG,
+    UNSAFE_CHARACTERS
+}
+
+internal fun snapshotNameIssue(value: String): SnapshotNameIssue? {
+    val trimmed = value.trim { it.isWhitespace() }
+    if (trimmed.isEmpty()) return null
+    if (trimmed.codePointCount(0, trimmed.length) > MAX_SCAN_NAME_LENGTH) return SnapshotNameIssue.TOO_LONG
+    if (trimmed.any(Char::isISOControl)) return SnapshotNameIssue.UNSAFE_CHARACTERS
+    return null
+}
+
+internal fun normalizedSnapshotName(value: String): String? =
+    value.trim { it.isWhitespace() }.takeIf(String::isNotEmpty)
+
 internal fun defaultSnapshotName(
     context: Context,
     language: AppLanguage,

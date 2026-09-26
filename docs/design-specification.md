@@ -181,11 +181,13 @@ Separate reference requirements from facts detected on the current device. Do no
 
 ## New scan flow
 
-The initial New scan screen is one scrollable setup view with a single sticky Continue action. It contains the optional scan name, scan scope, and capture source. The user makes these choices before entering the preparation checklist; MVP does not split them into separate wizard steps. Capture-source cards are selectable options and do not start capture or open the file picker. Continue opens Preparation. After the user confirms readiness, the selected source determines the next action: live capture opens its permission transition; MP4 import opens the file picker followed by preflight.
+The initial New scan screen is one scrollable setup view with a single sticky Continue action. Its fields appear in this order: optional scan name, intended collection range, and capture source. The user makes these choices before entering the preparation checklist; MVP does not split them into separate wizard steps. Continuing saves one independent setup/session identity before opening Preparation. Leaving a modified setup saves it to the Library, where returning restores its saved name, range, and source. Leaving setup returns to the Library without starting capture or requesting permissions, even if a field is invalid; an invalid name is treated as blank and an invalid scope description is omitted so other valid setup choices can be saved.
 
 ### Scope
 
-MVP shows one enabled scope:
+The intended range is either the whole collection or a user-described filtered subset. For a filtered subset, ask the user to describe the Pokémon GO filter or tag they intend to use. PokeAndScan does not inspect or infer the game's filter/tag name; the typed description is user-provided intent.
+
+The data fields included in every MVP scan remain:
 
 ~~~
 Pokémon appraisal
@@ -205,7 +207,7 @@ Scan name (optional)
 [ Sken 20.12.2023 ] / [ Scan 20.12.2023 ]
 ~~~
 
-The date-based default is editable and localized to the current app language when generated. Once saved, it is an ordinary stored name and does not change after a language switch. The name should be visible later in scan history, scan details, and export metadata. The user can describe a tag or purpose here, for example `PVP Pokémoni`.
+The field starts blank and shows a date-based preview localized to the current app language. If the user leaves it blank or enters only whitespace, generate the name when the setup identity is created. Once saved, it is an ordinary stored name and does not change after a language switch. Reject names longer than 80 characters or containing control characters with a clear inline message. The name should be visible later in scan history, scan details, and export metadata. The user can describe a tag or purpose here, for example `PVP Pokémoni`.
 
 ### Preparation checklist
 
@@ -253,7 +255,7 @@ Import MP4 recording
 Use an Android screen recording when live capture is unavailable.
 ~~~
 
-These cards only select the source; neither has a start/import button. The single sticky Continue action opens Preparation. After the final `I'm ready` confirmation, Live capture starts its permission transition. For Import MP4, open the Android file picker and then show MP4 preflight. The app also accepts an MP4 shared from Android Files or Gallery. Both import entry points lead to the same preflight; the original video remains owned by the user-selected external location.
+These cards only select the source; neither has a start/import button. The single sticky Continue action opens Preparation. If a source is not implemented or available in the current build, label that state clearly and do not present the preparation action as ready to start it. Once available, the source determines the next action after the final `I'm ready` confirmation: Live capture starts its permission transition; Import MP4 opens the Android file picker and then shows MP4 preflight. The app also accepts an MP4 shared from Android Files or Gallery. Both import entry points lead to the same preflight; the original video remains owned by the user-selected external location.
 
 ### MP4 preflight
 
@@ -483,6 +485,8 @@ If the selected filter has no matching records, show `No records match this filt
 The library lists independent scans, not a merged master collection.
 
 When there are no scans yet, show a small original Friendly Explorer illustration, a concise `No scans yet` message (localized in the UI), one sentence explaining that the first scan creates a local result, and the dominant `New scan` action. Do not show Pokémon/media thumbnails or repeat onboarding content.
+
+Persisted setup entries are labeled `Setup saved` and reopen the same session identity with its saved fields. A setup entry is not an active capture/processing job. The Library may offer another setup while only saved setups exist; an active or recoverable job blocks starting another scan and keeps finalized scans available.
 
 If the library has an active or interrupted job but no finalized scans, pin that job first and make `Continue`/`View` the primary action. A quieter `No completed scans yet` message may explain the empty history. Do not present `New scan` as available while the single-job limit prevents starting another job.
 
