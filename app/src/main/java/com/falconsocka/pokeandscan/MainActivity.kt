@@ -595,7 +595,7 @@ private fun NewScanScreen(
     onPreparation: () -> Unit
 ) {
     Column(modifier = modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Column(
                 modifier = Modifier
                     .widthIn(max = 560.dp)
@@ -761,7 +761,7 @@ private fun ScrollableScreenColumn(
     maxContentWidth: androidx.compose.ui.unit.Dp = 560.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .widthIn(max = maxContentWidth)
