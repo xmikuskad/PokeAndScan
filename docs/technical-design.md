@@ -269,6 +269,7 @@ The system counts stable content states after meaningful navigation, not source 
 - The decoder may use any codec supported by the target Android device. Decode failure produces an actionable unsupported-recording error.
 - A preflight validates orientation, dimensions/aspect ratio, and profile compatibility before full processing. Profile-specific tolerance determines whether a deviation is rejected or allowed with a warning.
 - Profile-specific preflight thresholds are calibration data, not implementation guesses. Establish them against labeled reference-profile fixtures before implementing `Supported`, `Supported with deviations`, and `Unsupported` classifications. Until then, do not claim an unverified layout is Supported; report only facts the app can verify and leave the classification gate open.
+- Current fixture availability, missing evidence, and calibration status are recorded in [MP4 reference-profile calibration](calibration/mp4-profile-calibration.md).
 - Deleting a snapshot deletes its records, review issues, and evidence crops together.
 - Older snapshots remain independent and selectable for export.
 - Results are checkpointed during processing so an interrupted session can resume from the last safe position or be finalized as a partial snapshot.
