@@ -83,7 +83,9 @@
     <string name="snapshot_delete_action">Odstrániť</string>
     <string name="snapshot_rename_title">Premenovať sken</string>
     <string name="snapshot_name_label">Názov skenu</string>
+    <string name="snapshot_name_required">Pred uložením zadajte názov.</string>
     <string name="snapshot_save_name_action">Uložiť názov</string>
+    <string name="snapshot_saving">Ukladám…</string>
     <string name="snapshot_delete_confirmation_title">Odstrániť sken „%1$s“?</string>
     <string name="snapshot_delete_confirmation_body">Týmto natrvalo odstránite tento sken, jeho záznamy, údaje na kontrolu a dôkazy uložené aplikáciou PokeAndScan. Pôvodná nahrávka obrazovky mimo aplikácie zostane nedotknutá.</string>
     <string name="snapshot_deleting">Odstraňujem…</string>

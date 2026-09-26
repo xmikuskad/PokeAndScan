@@ -50,6 +50,20 @@ import androidx.compose.ui.unit.dp
 import com.falconsocka.pokeandscan.ui.components.PrimaryActionButton
 import com.falconsocka.pokeandscan.ui.components.QuietActionButton
 import com.falconsocka.pokeandscan.ui.components.SecondaryActionButton
+import com.falconsocka.pokeandscan.ui.components.ScreenState
+import com.falconsocka.pokeandscan.ui.components.LoadingState
+import com.falconsocka.pokeandscan.ui.components.InlineNotice
+import com.falconsocka.pokeandscan.ui.components.NoticeTone
+import com.falconsocka.pokeandscan.ui.snapshot.DeleteSnapshotDialog
+import com.falconsocka.pokeandscan.ui.snapshot.RenameSnapshotDialog
+import com.falconsocka.pokeandscan.ui.snapshot.SnapshotMetric
+import com.falconsocka.pokeandscan.ui.snapshot.SnapshotMetricKind
+import com.falconsocka.pokeandscan.ui.snapshot.SnapshotMetricLine
+import com.falconsocka.pokeandscan.ui.snapshot.SnapshotStatusLabels
+import com.falconsocka.pokeandscan.ui.snapshot.presentation
+import com.falconsocka.pokeandscan.ui.illustration.IllustratedInformationState
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
 import com.falconsocka.pokeandscan.ui.theme.AppShapes
 import com.falconsocka.pokeandscan.ui.theme.AppSpacing
 import com.falconsocka.pokeandscan.ui.theme.LocalStatusColors
@@ -71,8 +85,13 @@ internal fun SnapshotLibraryScreen(
     modifier: Modifier = Modifier
 ) {
     when {
-        snapshots == null && !loadingError -> LoadingSnapshotState(modifier)
-        loadingError -> SnapshotErrorState(onRetry = onRetry, modifier = modifier)
+        snapshots == null && !loadingError -> LoadingState(R.string.snapshot_loading, modifier)
+        loadingError -> ScreenState(
+            title = stringResource(R.string.snapshot_load_error_title),
+            body = stringResource(R.string.snapshot_load_error_body),
+            modifier = modifier,
+            primaryAction = { PrimaryActionButton(onClick = onRetry) { Text(stringResource(R.string.snapshot_retry_action)) } }
+        )
         snapshots.isNullOrEmpty() -> IllustratedInformationState(
             illustrationRes = illustrationRes,
             title = stringResource(R.string.empty_library_title),
@@ -101,12 +120,7 @@ internal fun SnapshotLibraryScreen(
             }
             if (hasActiveJob) {
                 item {
-                    Text(
-                        stringResource(R.string.snapshot_active_job_notice),
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    InlineNotice(stringResource(R.string.snapshot_active_job_notice), NoticeTone.Warning)
                 }
             }
             items(prioritizedSnapshots, key = SnapshotSummary::id) { snapshot ->
@@ -126,22 +140,37 @@ internal fun SnapshotDetailScreen(
     loadingError: Boolean,
     operationError: Boolean,
     isDeleting: Boolean,
+    isRenaming: Boolean,
     onBackToLibrary: () -> Unit,
     onRetry: () -> Unit,
     onContinueSetup: () -> Unit,
+    onClearOperationError: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
-        loading && snapshot == null -> LoadingSnapshotState(modifier)
-        loadingError -> SnapshotErrorState(onRetry = onRetry, modifier = modifier)
-        snapshot == null -> SnapshotMissingState(onBackToLibrary, modifier)
+        loading && snapshot == null -> LoadingState(R.string.snapshot_loading, modifier)
+        loadingError -> ScreenState(
+            title = stringResource(R.string.snapshot_load_error_title),
+            body = stringResource(R.string.snapshot_load_error_body),
+            modifier = modifier,
+            primaryAction = { PrimaryActionButton(onClick = onRetry) { Text(stringResource(R.string.snapshot_retry_action)) } },
+            secondaryAction = { QuietActionButton(onClick = onBackToLibrary) { Text(stringResource(R.string.snapshot_back_to_library)) } }
+        )
+        snapshot == null -> ScreenState(
+            title = stringResource(R.string.snapshot_missing_title),
+            body = stringResource(R.string.snapshot_missing_body),
+            modifier = modifier,
+            primaryAction = { PrimaryActionButton(onClick = onBackToLibrary) { Text(stringResource(R.string.snapshot_back_to_library)) } }
+        )
         else -> SnapshotDetailContent(
             snapshot = snapshot,
             operationError = operationError,
             isDeleting = isDeleting,
+            isRenaming = isRenaming,
             onContinueSetup = onContinueSetup,
+            onClearOperationError = onClearOperationError,
             onRename = onRename,
             onDelete = onDelete,
             modifier = modifier
@@ -168,12 +197,14 @@ private fun SnapshotCard(
             verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium)) {
-                SnapshotGlyph(
-                    kind = sourceGlyph(snapshot.sourceType),
-                    contentDescription = sourceDescription(snapshot.sourceType),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = AppSpacing.xSmall)
-                )
+                snapshot.sourceType?.let { source ->
+                    Icon(
+                        painter = painterResource(source.presentation().iconRes),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = AppSpacing.xSmall).size(20.dp)
+                    )
+                }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)) {
                     Text(snapshot.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
@@ -183,22 +214,20 @@ private fun SnapshotCard(
                     )
                 }
             }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-            ) {
-                SnapshotStateLabel(snapshot.lifecycle)
-                snapshot.scopeCompleteness?.let { SnapshotScopeLabel(it) }
-                snapshot.scanScopeType?.let { ScanIntentScopeLabel(it, snapshot.scanScopeDescription) }
-                snapshot.sourceType?.let { SnapshotSourceLabel(it) }
-            }
+            SnapshotStatusLabels(
+                lifecycle = snapshot.lifecycle,
+                scopeCompleteness = snapshot.scopeCompleteness,
+                source = snapshot.sourceType,
+                scanScopeType = snapshot.scanScopeType,
+                scanScopeDescription = snapshot.scanScopeDescription
+            )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium),
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
-                SnapshotMetric(R.string.snapshot_metric_review, snapshot.reviewCount, SnapshotGlyphKind.REVIEW)
-                SnapshotMetric(R.string.snapshot_metric_partial, snapshot.partialCount, SnapshotGlyphKind.PARTIAL)
-                SnapshotMetric(R.string.snapshot_metric_warnings, snapshot.warningCount, SnapshotGlyphKind.WARNING)
+                SnapshotMetric(SnapshotMetricKind.Review, snapshot.reviewCount)
+                SnapshotMetric(SnapshotMetricKind.Partial, snapshot.partialCount)
+                SnapshotMetric(SnapshotMetricKind.Warning, snapshot.warningCount)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xSmall), verticalAlignment = Alignment.CenterVertically) {
                 QuietActionButton(onClick = onOpen) { Text(stringResource(R.string.snapshot_open_action)) }
@@ -213,14 +242,16 @@ private fun SnapshotDetailContent(
     snapshot: SnapshotDetailSummary,
     operationError: Boolean,
     isDeleting: Boolean,
+    isRenaming: Boolean,
     onContinueSetup: () -> Unit,
+    onClearOperationError: () -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showRenameDialog by remember(snapshot.id) { mutableStateOf(false) }
     var showDeleteDialog by remember(snapshot.id) { mutableStateOf(false) }
-    var name by remember(snapshot.id, snapshot.name) { mutableStateOf(snapshot.name) }
+    var renameName by remember(snapshot.id) { mutableStateOf(snapshot.name) }
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -243,36 +274,38 @@ private fun SnapshotDetailContent(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-                ) {
-                    SnapshotStateLabel(snapshot.lifecycle)
-                    snapshot.scopeCompleteness?.let { SnapshotScopeLabel(it) }
-                    snapshot.scanScopeType?.let { ScanIntentScopeLabel(it, snapshot.scanScopeDescription) }
-                    snapshot.sourceType?.let { SnapshotSourceLabel(it) }
-                }
-                SummaryLine(R.string.snapshot_detail_records, snapshot.recordCount)
-                SummaryLine(R.string.snapshot_detail_included_records, snapshot.includedRecordCount)
-                SummaryLine(R.string.snapshot_metric_review, snapshot.reviewCount, SnapshotGlyphKind.REVIEW)
-                SummaryLine(R.string.snapshot_metric_partial, snapshot.partialCount, SnapshotGlyphKind.PARTIAL)
-                SummaryLine(R.string.snapshot_metric_warnings, snapshot.warningCount, SnapshotGlyphKind.WARNING)
+                SnapshotStatusLabels(
+                    lifecycle = snapshot.lifecycle,
+                    scopeCompleteness = snapshot.scopeCompleteness,
+                    source = snapshot.sourceType,
+                    scanScopeType = snapshot.scanScopeType,
+                    scanScopeDescription = snapshot.scanScopeDescription
+                )
+                Text(
+                    stringResource(R.string.snapshot_detail_records, snapshot.recordCount),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    stringResource(R.string.snapshot_detail_included_records, snapshot.includedRecordCount),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                SnapshotMetricLine(SnapshotMetricKind.Review, snapshot.reviewCount)
+                SnapshotMetricLine(SnapshotMetricKind.Partial, snapshot.partialCount)
+                SnapshotMetricLine(SnapshotMetricKind.Warning, snapshot.warningCount)
             }
         }
 
         if (snapshot.lifecycle != SnapshotLifecycle.COMPLETE ||
             snapshot.reviewCount > 0 || snapshot.warningCount > 0 || snapshot.partialCount > 0
         ) {
-            Text(
-                text = when (snapshot.lifecycle) {
+            InlineNotice(
+                message = when (snapshot.lifecycle) {
                     SnapshotLifecycle.SETUP -> stringResource(R.string.snapshot_setup_saved_notice)
                     SnapshotLifecycle.PROCESSING -> stringResource(R.string.snapshot_processing_notice)
                     SnapshotLifecycle.INCOMPLETE -> stringResource(R.string.snapshot_not_finished_notice)
                     SnapshotLifecycle.COMPLETE -> stringResource(R.string.snapshot_review_notice)
                 },
-                modifier = Modifier.fillMaxWidth().clip(AppShapes.card).padding(AppSpacing.large),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
+                tone = if (snapshot.lifecycle == SnapshotLifecycle.SETUP) NoticeTone.Info else NoticeTone.Warning
             )
         }
 
@@ -285,11 +318,7 @@ private fun SnapshotDetailContent(
         }
 
         if (operationError) {
-            Text(
-                stringResource(R.string.snapshot_operation_error),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            InlineNotice(stringResource(R.string.snapshot_operation_error), NoticeTone.Error)
         }
 
         if (snapshot.lifecycle == SnapshotLifecycle.SETUP) {
@@ -300,15 +329,23 @@ private fun SnapshotDetailContent(
                 Text(stringResource(R.string.snapshot_continue_setup))
             }
         }
-        PrimaryActionButton(
-            onClick = { showRenameDialog = true },
+        QuietActionButton(
+            onClick = {
+                onClearOperationError()
+                renameName = snapshot.name
+                showRenameDialog = true
+            },
+            enabled = !isDeleting && !isRenaming,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.snapshot_rename_action))
         }
         SecondaryActionButton(
-            onClick = { showDeleteDialog = true },
-            enabled = !isDeleting,
+            onClick = {
+                onClearOperationError()
+                showDeleteDialog = true
+            },
+            enabled = !isDeleting && !isRenaming,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.snapshot_delete_action))
@@ -316,51 +353,23 @@ private fun SnapshotDetailContent(
     }
 
     if (showRenameDialog) {
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text(stringResource(R.string.snapshot_rename_title)) },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.snapshot_name_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = AppShapes.control
-                )
-            },
-            confirmButton = {
-                QuietActionButton(
-                    onClick = {
-                        showRenameDialog = false
-                        onRename(name)
-                    },
-                    enabled = name.isNotBlank() && !isDeleting
-                ) { Text(stringResource(R.string.snapshot_save_name_action)) }
-            },
-            dismissButton = {
-                QuietActionButton(onClick = { showRenameDialog = false }) {
-                    Text(stringResource(R.string.action_back))
-                }
-            }
+        RenameSnapshotDialog(
+            name = renameName,
+            onNameChange = { renameName = it },
+            isSaving = isRenaming,
+            operationError = operationError,
+            onSave = onRename,
+            onDismiss = { showRenameDialog = false }
         )
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
-            title = { Text(stringResource(R.string.snapshot_delete_confirmation_title, snapshot.name)) },
-            text = { Text(stringResource(R.string.snapshot_delete_confirmation_body)) },
-            confirmButton = {
-                QuietActionButton(onClick = onDelete, enabled = !isDeleting) {
-                    Text(stringResource(if (isDeleting) R.string.snapshot_deleting else R.string.snapshot_delete_action))
-                }
-            },
-            dismissButton = {
-                QuietActionButton(onClick = { showDeleteDialog = false }, enabled = !isDeleting) {
-                    Text(stringResource(R.string.action_back))
-                }
-            }
+        DeleteSnapshotDialog(
+            snapshotName = snapshot.name,
+            isDeleting = isDeleting,
+            operationError = operationError,
+            onConfirm = onDelete,
+            onDismiss = { showDeleteDialog = false }
         )
     }
 }
@@ -370,234 +379,6 @@ private fun SnapshotLifecycle.libraryPriority(): Int = when (this) {
     SnapshotLifecycle.INCOMPLETE -> 1
     SnapshotLifecycle.SETUP -> 2
     SnapshotLifecycle.COMPLETE -> 3
-}
-
-@Composable
-private fun SnapshotStateLabel(lifecycle: SnapshotLifecycle) {
-    val palette = LocalStatusColors.current
-    val state = when (lifecycle) {
-        SnapshotLifecycle.SETUP -> Triple(R.string.snapshot_lifecycle_setup, SnapshotGlyphKind.PARTIAL, palette.partial)
-        SnapshotLifecycle.PROCESSING -> Triple(R.string.snapshot_lifecycle_processing, SnapshotGlyphKind.PROCESSING, palette.needsReview)
-        SnapshotLifecycle.INCOMPLETE -> Triple(R.string.snapshot_lifecycle_incomplete, SnapshotGlyphKind.WARNING, palette.needsReview)
-        SnapshotLifecycle.COMPLETE -> Triple(R.string.snapshot_lifecycle_complete, SnapshotGlyphKind.COMPLETE, palette.ready)
-    }
-    SemanticLabel(state.first, state.second, state.third.foreground, state.third.container)
-}
-
-@Composable
-private fun ScanIntentScopeLabel(scopeType: ScanScopeType, description: String?) {
-    val label = when (scopeType) {
-        ScanScopeType.WHOLE_COLLECTION -> stringResource(R.string.scan_scope_whole_collection)
-        ScanScopeType.FILTERED_SUBSET -> description?.takeIf(String::isNotBlank)?.let {
-            stringResource(R.string.scan_scope_filtered_summary, it)
-        } ?: stringResource(R.string.scan_scope_filtered_subset)
-    }
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
-    ) {
-        Text(label, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium)
-    }
-}
-
-@Composable
-private fun SnapshotScopeLabel(scope: SnapshotScopeCompleteness) {
-    val palette = LocalStatusColors.current
-    val state = if (scope == SnapshotScopeCompleteness.INTENDED_RANGE) {
-        Triple(R.string.snapshot_scope_intended, SnapshotGlyphKind.COMPLETE, palette.ready)
-    } else {
-        Triple(R.string.snapshot_scope_partial, SnapshotGlyphKind.PARTIAL, palette.partial)
-    }
-    SemanticLabel(state.first, state.second, state.third.foreground, state.third.container)
-}
-
-@Composable
-private fun SnapshotSourceLabel(source: SnapshotSourceType) {
-    val sourceRes = if (source == SnapshotSourceType.LIVE) R.string.snapshot_source_live else R.string.snapshot_source_mp4
-    SemanticLabel(sourceRes, sourceGlyph(source), MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.surface)
-}
-
-@Composable
-private fun SemanticLabel(labelRes: Int, kind: SnapshotGlyphKind, foreground: Color, background: Color) {
-    val label = stringResource(labelRes)
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = background,
-        contentColor = foreground,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SnapshotGlyph(kind, label, foreground, Modifier.size(16.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium)
-        }
-    }
-}
-
-@Composable
-private fun SnapshotMetric(labelRes: Int, count: Int, kind: SnapshotGlyphKind) {
-    val palette = LocalStatusColors.current
-    val tint = when (kind) {
-        SnapshotGlyphKind.PARTIAL -> palette.partial.foreground
-        SnapshotGlyphKind.WARNING, SnapshotGlyphKind.REVIEW -> palette.needsReview.foreground
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        SnapshotGlyph(kind, stringResource(labelRes, count), tint, Modifier.size(16.dp))
-        Text(
-            stringResource(labelRes, count),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun SummaryLine(labelRes: Int, count: Int, kind: SnapshotGlyphKind? = null) {
-    val palette = LocalStatusColors.current
-    val tint = when (kind) {
-        SnapshotGlyphKind.PARTIAL -> palette.partial.foreground
-        SnapshotGlyphKind.WARNING, SnapshotGlyphKind.REVIEW -> palette.needsReview.foreground
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        kind?.let { SnapshotGlyph(it, stringResource(labelRes, count), tint, Modifier.size(18.dp)) }
-        Text(
-            text = stringResource(labelRes, count),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
-private fun SnapshotGlyph(
-    kind: SnapshotGlyphKind,
-    contentDescription: String,
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier.size(20.dp).semantics { this.contentDescription = contentDescription }) {
-        val stroke = 1.8.dp.toPx()
-        val inset = stroke / 2
-        val x = size.width / 2
-        val y = size.height / 2
-        when (kind) {
-            SnapshotGlyphKind.COMPLETE -> {
-                drawCircle(tint, size.minDimension / 2 - inset, style = Stroke(stroke))
-                drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .27f, size.height * .53f), androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), stroke, StrokeCap.Round)
-                drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), androidx.compose.ui.geometry.Offset(size.width * .75f, size.height * .34f), stroke, StrokeCap.Round)
-            }
-            SnapshotGlyphKind.PROCESSING -> {
-                drawCircle(tint, size.minDimension / 2 - inset, style = Stroke(stroke))
-                drawLine(tint, androidx.compose.ui.geometry.Offset(x, size.height * .22f), androidx.compose.ui.geometry.Offset(x, y), stroke, StrokeCap.Round)
-                drawLine(tint, androidx.compose.ui.geometry.Offset(x, y), androidx.compose.ui.geometry.Offset(size.width * .7f, size.height * .63f), stroke, StrokeCap.Round)
-            }
-            SnapshotGlyphKind.WARNING, SnapshotGlyphKind.REVIEW -> {
-                val path = Path().apply {
-                    moveTo(x, inset)
-                    lineTo(size.width - inset, size.height - inset)
-                    lineTo(inset, size.height - inset)
-                    close()
-                }
-                drawPath(path, tint, style = Stroke(stroke, cap = StrokeCap.Round))
-                drawLine(tint, androidx.compose.ui.geometry.Offset(x, size.height * .37f), androidx.compose.ui.geometry.Offset(x, size.height * .61f), stroke, StrokeCap.Round)
-                drawCircle(tint, stroke / 1.5f, androidx.compose.ui.geometry.Offset(x, size.height * .77f))
-            }
-            SnapshotGlyphKind.PARTIAL -> {
-                drawCircle(tint, size.minDimension / 2 - inset, style = Stroke(stroke))
-                drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .28f, y), androidx.compose.ui.geometry.Offset(size.width * .72f, y), stroke, StrokeCap.Round)
-            }
-            SnapshotGlyphKind.LIVE -> {
-                drawRoundRect(tint, topLeft = androidx.compose.ui.geometry.Offset(size.width * .08f, size.height * .22f), size = androidx.compose.ui.geometry.Size(size.width * .84f, size.height * .64f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(stroke * 2), style = Stroke(stroke))
-                drawCircle(tint, size.width * .12f, androidx.compose.ui.geometry.Offset(x, y))
-            }
-            SnapshotGlyphKind.MP4 -> {
-                drawRoundRect(tint, topLeft = androidx.compose.ui.geometry.Offset(size.width * .08f, size.height * .15f), size = androidx.compose.ui.geometry.Size(size.width * .84f, size.height * .7f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(stroke * 2), style = Stroke(stroke))
-                val play = Path().apply {
-                    moveTo(size.width * .43f, size.height * .34f)
-                    lineTo(size.width * .65f, y)
-                    lineTo(size.width * .43f, size.height * .66f)
-                    close()
-                }
-                drawPath(play, tint)
-            }
-            SnapshotGlyphKind.UNKNOWN -> {
-                drawCircle(tint, size.minDimension / 2 - inset, style = Stroke(stroke))
-                drawLine(tint, androidx.compose.ui.geometry.Offset(x, size.height * .33f), androidx.compose.ui.geometry.Offset(x, size.height * .57f), stroke, StrokeCap.Round)
-                drawCircle(tint, stroke / 1.5f, androidx.compose.ui.geometry.Offset(x, size.height * .75f))
-            }
-        }
-    }
-}
-
-private enum class SnapshotGlyphKind { COMPLETE, PROCESSING, WARNING, REVIEW, PARTIAL, LIVE, MP4, UNKNOWN }
-
-private fun sourceGlyph(source: SnapshotSourceType?): SnapshotGlyphKind = when (source) {
-    SnapshotSourceType.LIVE -> SnapshotGlyphKind.LIVE
-    SnapshotSourceType.MP4 -> SnapshotGlyphKind.MP4
-    null -> SnapshotGlyphKind.UNKNOWN
-}
-
-@Composable
-private fun sourceDescription(source: SnapshotSourceType?): String = when (source) {
-    SnapshotSourceType.LIVE -> stringResource(R.string.snapshot_source_live)
-    SnapshotSourceType.MP4 -> stringResource(R.string.snapshot_source_mp4)
-    null -> stringResource(R.string.snapshot_source_unknown)
-}
-
-@Composable
-private fun LoadingSnapshotState(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)) {
-            CircularProgressIndicator()
-            Text(stringResource(R.string.snapshot_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun SnapshotErrorState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(AppSpacing.xLarge),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(stringResource(R.string.snapshot_load_error_title), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(AppSpacing.small))
-        Text(stringResource(R.string.snapshot_load_error_body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(AppSpacing.screen))
-        PrimaryActionButton(onClick = onRetry) {
-            Text(stringResource(R.string.snapshot_retry_action))
-        }
-    }
-}
-
-@Composable
-private fun SnapshotMissingState(onBackToLibrary: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(AppSpacing.xLarge),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(stringResource(R.string.snapshot_missing_title), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(AppSpacing.small))
-        Text(stringResource(R.string.snapshot_missing_body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(AppSpacing.screen))
-        PrimaryActionButton(onClick = onBackToLibrary) {
-            Text(stringResource(R.string.snapshot_back_to_library))
-        }
-    }
 }
 
 @Composable

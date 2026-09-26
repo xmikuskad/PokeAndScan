@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,6 +67,20 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.falconsocka.pokeandscan.ui.illustration.ScreenIllustrationPool
 import com.falconsocka.pokeandscan.ui.illustration.ScreenIllustrationSelector
+import com.falconsocka.pokeandscan.ui.illustration.IllustrationArtwork
+import com.falconsocka.pokeandscan.ui.illustration.IllustratedInformationState
+import com.falconsocka.pokeandscan.ui.illustration.IllustratedIntro
+import com.falconsocka.pokeandscan.ui.layout.ScrollableScreenColumn
+import com.falconsocka.pokeandscan.ui.snapshot.ScanNameField
+import com.falconsocka.pokeandscan.ui.snapshot.snapshotNameIssueMessage
+import com.falconsocka.pokeandscan.ui.components.InformationCard
+import com.falconsocka.pokeandscan.ui.components.InlineNotice
+import com.falconsocka.pokeandscan.ui.components.NoticeTone
+import com.falconsocka.pokeandscan.ui.components.SelectionOptionCard
+import com.falconsocka.pokeandscan.ui.components.SectionCard
+import com.falconsocka.pokeandscan.ui.components.SingleChoiceRow
+import com.falconsocka.pokeandscan.ui.components.ScreenState
+import com.falconsocka.pokeandscan.ui.components.LoadingState
 import com.falconsocka.pokeandscan.ui.components.PrimaryActionButton
 import com.falconsocka.pokeandscan.ui.components.QuietActionButton
 import com.falconsocka.pokeandscan.ui.components.SecondaryActionButton
@@ -368,12 +383,14 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                         }
                         var screenOperationError by remember(snapshotId) { mutableStateOf(false) }
                         var screenIsDeleting by remember(snapshotId) { mutableStateOf(false) }
+                        var screenIsRenaming by remember(snapshotId) { mutableStateOf(false) }
                         SnapshotDetailScreen(
                             snapshot = detail,
                             loading = snapshots == null && !snapshotsLoadError,
                             loadingError = snapshotsLoadError,
                             operationError = screenOperationError,
                             isDeleting = screenIsDeleting,
+                            isRenaming = screenIsRenaming,
                             onBackToLibrary = { navController.popBackStack(AppDestination.Library.route, false) },
                             onRetry = { snapshotRetryCount++ },
                             onContinueSetup = {
@@ -381,12 +398,19 @@ fun PokeAndScanApp(preferences: AppPreferences) {
                                     navController.navigate("${AppDestination.NewScan.route}/$snapshotId")
                                 }
                             },
+                            onClearOperationError = { screenOperationError = false },
                             onRename = { name ->
-                                if (snapshotId != null) coroutineScope.launch {
-                                    screenOperationError = try {
-                                        !snapshotRepository.renameSnapshot(snapshotId, name)
-                                    } catch (_: Exception) {
-                                        true
+                                if (snapshotId != null && !screenIsRenaming && !screenIsDeleting) {
+                                    screenIsRenaming = true
+                                    screenOperationError = false
+                                    coroutineScope.launch {
+                                        try {
+                                            screenOperationError = !snapshotRepository.renameSnapshot(snapshotId, name)
+                                        } catch (_: Exception) {
+                                            screenOperationError = true
+                                        } finally {
+                                            screenIsRenaming = false
+                                        }
                                     }
                                 }
                             },
@@ -707,23 +731,27 @@ private fun ScanSetupLoadingOrMissing(
     onRetry: () -> Unit,
     onBack: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(AppSpacing.screen),
-        verticalArrangement = Arrangement.spacedBy(AppSpacing.medium),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        if (loading) {
-            androidx.compose.material3.CircularProgressIndicator()
-            Text(stringResource(R.string.snapshot_loading))
-        } else if (loadingError) {
-            Text(stringResource(R.string.snapshot_load_error_body))
-            QuietActionButton(onClick = onRetry) { Text(stringResource(R.string.snapshot_retry_action)) }
-            QuietActionButton(onClick = onBack) { Text(stringResource(R.string.snapshot_back_to_library)) }
-        } else {
-            Text(stringResource(R.string.snapshot_missing_body))
-            QuietActionButton(onClick = onRetry) { Text(stringResource(R.string.snapshot_retry_action)) }
-            QuietActionButton(onClick = onBack) { Text(stringResource(R.string.snapshot_back_to_library)) }
-        }
+    if (loading) {
+        LoadingState(R.string.snapshot_loading)
+    } else if (loadingError) {
+        ScreenState(
+            title = stringResource(R.string.snapshot_load_error_title),
+            body = stringResource(R.string.snapshot_load_error_body),
+            primaryAction = {
+                PrimaryActionButton(onClick = onRetry) { Text(stringResource(R.string.snapshot_retry_action)) }
+            },
+            secondaryAction = {
+                QuietActionButton(onClick = onBack) { Text(stringResource(R.string.snapshot_back_to_library)) }
+            }
+        )
+    } else {
+        ScreenState(
+            title = stringResource(R.string.snapshot_missing_title),
+            body = stringResource(R.string.snapshot_missing_body),
+            primaryAction = {
+                PrimaryActionButton(onClick = onBack) { Text(stringResource(R.string.snapshot_back_to_library)) }
+            }
+        )
     }
 }
 
@@ -737,16 +765,16 @@ private fun WelcomeScreen(
     onSkip: () -> Unit
 ) {
     ScrollableScreenColumn(modifier = modifier, verticalPadding = AppSpacing.large) {
-        IllustrationArtwork(illustrationRes, height = 188.dp)
+        IllustrationArtwork(illustrationRes, height = 208.dp)
         Text(
             text = stringResource(R.string.brand_tagline),
-            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+            modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
             style = MaterialTheme.typography.displaySmall,
             textAlign = TextAlign.Center
         )
         Text(
             text = stringResource(R.string.welcome_description),
-            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+            modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -763,13 +791,13 @@ private fun WelcomeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        SettingsGroup(title = stringResource(R.string.language_setting)) {
-            LanguageChoiceRow(
+        SectionCard(title = stringResource(R.string.language_setting), modifier = Modifier.selectableGroup()) {
+            SingleChoiceRow(
                 label = stringResource(R.string.language_english),
                 selected = language == AppLanguage.English,
                 onClick = { onLanguageSelected(AppLanguage.English) }
             )
-            LanguageChoiceRow(
+            SingleChoiceRow(
                 label = stringResource(R.string.language_slovak),
                 selected = language == AppLanguage.Slovak,
                 onClick = { onLanguageSelected(AppLanguage.Slovak) }
@@ -799,28 +827,13 @@ private fun CaptureExplanationScreen(
     onContinue: () -> Unit
 ) {
     ScrollableScreenColumn(modifier = modifier) {
-        IllustrationArtwork(illustrationRes, height = 184.dp)
-        Text(
-            stringResource(R.string.capture_explanation_body),
-            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
+        IllustratedIntro(
+            illustrationRes = illustrationRes,
+            body = stringResource(R.string.capture_explanation_body)
         )
-        CaptureMethodCard(stringResource(R.string.live_capture_title), stringResource(R.string.live_capture_description))
-        CaptureMethodCard(stringResource(R.string.mp4_import_title), stringResource(R.string.mp4_import_description))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = AppShapes.card,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-        ) {
-            Text(
-                stringResource(R.string.manual_navigation_reminder),
-                modifier = Modifier.padding(AppSpacing.large),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
+        InformationCard(stringResource(R.string.live_capture_title), stringResource(R.string.live_capture_description))
+        InformationCard(stringResource(R.string.mp4_import_title), stringResource(R.string.mp4_import_description))
+        InlineNotice(stringResource(R.string.manual_navigation_reminder), NoticeTone.Info)
         PrimaryActionButton(
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth()
@@ -852,43 +865,19 @@ private fun PreparationScreen(
     val context = LocalContext.current
     val pokemonGoNotFoundMessage = stringResource(R.string.pokemon_go_not_found)
     ScrollableScreenColumn(modifier = modifier) {
-        headingRes?.let { titleRes ->
-            Text(
-                text = stringResource(titleRes),
-                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-        }
-        IllustrationArtwork(illustrationRes, height = 184.dp)
-        Text(
-            stringResource(introRes),
-            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+        IllustratedIntro(
+            illustrationRes = illustrationRes,
+            title = headingRes?.let { stringResource(it) },
+            body = stringResource(introRes)
         )
         selectedSourceLabelRes?.let { sourceLabelRes ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = AppShapes.card,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Text(
-                    text = stringResource(R.string.selected_capture_source, stringResource(sourceLabelRes)),
-                    modifier = Modifier.fillMaxWidth().padding(AppSpacing.large),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+            InlineNotice(
+                stringResource(R.string.selected_capture_source, stringResource(sourceLabelRes)),
+                NoticeTone.Info
+            )
         }
         if (sourceUnavailable) {
-            Text(
-                stringResource(R.string.capture_source_unavailable_body),
-                modifier = Modifier.fillMaxWidth().clip(AppShapes.card).padding(AppSpacing.large),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            InlineNotice(stringResource(R.string.capture_source_unavailable_body), NoticeTone.Info)
         }
         GuidanceSection(stringResource(R.string.reference_setup_title), stringResource(R.string.reference_setup_details))
         GuidanceSection(stringResource(R.string.scan_scope_title), stringResource(R.string.scan_scope_details))
@@ -952,38 +941,20 @@ private fun NewScanScreen(
                     .padding(horizontal = AppSpacing.screen, vertical = AppSpacing.screen),
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.screen)
             ) {
-                IllustrationArtwork(illustrationRes, height = 176.dp)
-                Column(
-                    modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        stringResource(R.string.new_scan_state_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        stringResource(R.string.new_scan_intro),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                OutlinedTextField(
+                IllustratedIntro(
+                    illustrationRes = illustrationRes,
+                    title = stringResource(R.string.new_scan_state_title),
+                    body = stringResource(R.string.new_scan_intro)
+                )
+                ScanNameField(
                     value = scanName,
                     onValueChange = onScanNameChange,
-                    modifier = Modifier.fillMaxWidth().focusOutline(AppShapes.control),
-                    label = { Text(stringResource(R.string.scan_name_optional)) },
-                    placeholder = { Text(namePlaceholder) },
-                    supportingText = {
-                        Text(stringResource(nameErrorRes ?: R.string.scan_name_helper))
-                    },
-                    isError = nameErrorRes != null,
-                    singleLine = true,
-                    shape = AppShapes.control
+                    label = stringResource(R.string.scan_name_optional),
+                    placeholder = namePlaceholder,
+                    supportingText = stringResource(nameErrorRes ?: R.string.scan_name_helper),
+                    isError = nameErrorRes != null
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                Column(modifier = Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(stringResource(R.string.scan_scope_title), style = MaterialTheme.typography.titleLarge)
                     SelectionOptionCard(
                         title = stringResource(R.string.scan_scope_whole_collection),
@@ -1015,7 +986,7 @@ private fun NewScanScreen(
                         )
                     }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                Column(modifier = Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(stringResource(R.string.capture_source_title), style = MaterialTheme.typography.titleLarge)
                     SelectionOptionCard(
                         title = stringResource(R.string.live_capture_title),
@@ -1036,24 +1007,23 @@ private fun NewScanScreen(
             }
         }
         if (activeJob) {
-            Text(
+            InlineNotice(
                 stringResource(R.string.snapshot_active_job_notice),
-                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
+                NoticeTone.Warning,
+                modifier = Modifier.widthIn(max = 560.dp).padding(horizontal = AppSpacing.screen)
             )
         }
         saveErrorRes?.let {
-            Text(
+            InlineNotice(
                 stringResource(it),
-                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
+                NoticeTone.Error,
+                modifier = Modifier.widthIn(max = 560.dp).padding(horizontal = AppSpacing.screen)
             )
         }
         PrimaryActionButton(
             onClick = onPreparation,
-            enabled = !activeJob && !isSaving,
+            enabled = !activeJob,
+            loading = isSaving,
             modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = AppSpacing.screen, vertical = AppSpacing.medium)
         ) {
             Text(stringResource(if (isSaving) R.string.scan_setup_saving else R.string.action_continue))
@@ -1068,170 +1038,10 @@ private fun NewScanScreen(
 }
 
 @Composable
-private fun SelectionOptionCard(
-    title: String,
-    body: String,
-    selected: Boolean,
-    recommendation: String? = null,
-    statusLabel: String? = null,
-    onClick: () -> Unit
-) {
-    val shape = AppShapes.card
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().focusOutline(shape),
-        shape = shape,
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (selected) 2.dp else 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = AppSpacing.large, vertical = AppSpacing.medium),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium)
-        ) {
-            RadioButton(selected = selected, onClick = null)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)) {
-                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                        Text(title, style = MaterialTheme.typography.titleMedium)
-                        recommendation?.let {
-                            Text(
-                                it,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    statusLabel?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun GuidanceSection(title: String, body: String) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun CaptureMethodCard(title: String, body: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = AppShapes.card,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = AppSpacing.large, vertical = AppSpacing.large),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.xSmall)
-        ) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun ScrollableScreenColumn(
-    modifier: Modifier = Modifier,
-    verticalPadding: androidx.compose.ui.unit.Dp = AppSpacing.screen,
-    maxContentWidth: androidx.compose.ui.unit.Dp = 560.dp,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = maxContentWidth)
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = AppSpacing.screen, vertical = verticalPadding),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.large),
-            content = content
-        )
-    }
-}
-
-@Composable
-internal fun IllustratedInformationState(
-    illustrationRes: Int,
-    title: String,
-    body: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 440.dp)
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .verticalScroll(rememberScrollState())
-                .heightIn(min = maxHeight)
-                .padding(horizontal = AppSpacing.screen, vertical = AppSpacing.xLarge),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            IllustrationArtwork(illustrationRes, height = 208.dp)
-            Spacer(Modifier.height(AppSpacing.large))
-            Text(
-                text = title,
-                modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(AppSpacing.small))
-            Text(
-                text = body,
-                modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(AppSpacing.xLarge))
-            PrimaryActionButton(
-                onClick = onAction,
-                modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 360.dp).fillMaxWidth()
-            ) {
-                Text(actionLabel)
-            }
-        }
-    }
-}
-
-@Composable
-private fun IllustrationArtwork(
-    illustrationRes: Int,
-    modifier: Modifier = Modifier,
-    height: androidx.compose.ui.unit.Dp = 200.dp
-) {
-    Box(
-        modifier = modifier.fillMaxWidth().height(height),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(illustrationRes),
-            contentDescription = null,
-            modifier = Modifier.widthIn(max = 360.dp).fillMaxWidth().fillMaxHeight(),
-            contentScale = ContentScale.Fit
-        )
     }
 }
 
@@ -1253,24 +1063,24 @@ private fun SettingsScreen(
             .padding(horizontal = AppSpacing.screen, vertical = AppSpacing.medium),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.screen)
     ) {
-        SettingsGroup(title = stringResource(R.string.language_setting)) {
-            LanguageChoiceRow(
+        SectionCard(title = stringResource(R.string.language_setting), modifier = Modifier.selectableGroup()) {
+            SingleChoiceRow(
                 label = stringResource(R.string.language_english),
                 selected = language == AppLanguage.English,
                 onClick = { onLanguageSelected(AppLanguage.English) }
             )
-            LanguageChoiceRow(
+            SingleChoiceRow(
                 label = stringResource(R.string.language_slovak),
                 selected = language == AppLanguage.Slovak,
                 onClick = { onLanguageSelected(AppLanguage.Slovak) }
             )
         }
-        SettingsGroup(title = stringResource(R.string.theme_setting)) {
-            ThemeChoiceRow(ThemePreference.System, theme, stringResource(R.string.theme_system), onThemeSelected)
-            ThemeChoiceRow(ThemePreference.Light, theme, stringResource(R.string.theme_light), onThemeSelected)
-            ThemeChoiceRow(ThemePreference.Dark, theme, stringResource(R.string.theme_dark), onThemeSelected)
+        SectionCard(title = stringResource(R.string.theme_setting), modifier = Modifier.selectableGroup()) {
+            SingleChoiceRow(stringResource(R.string.theme_system), theme == ThemePreference.System) { onThemeSelected(ThemePreference.System) }
+            SingleChoiceRow(stringResource(R.string.theme_light), theme == ThemePreference.Light) { onThemeSelected(ThemePreference.Light) }
+            SingleChoiceRow(stringResource(R.string.theme_dark), theme == ThemePreference.Dark) { onThemeSelected(ThemePreference.Dark) }
         }
-        SettingsGroup(title = stringResource(R.string.privacy_title)) {
+        SectionCard(title = stringResource(R.string.privacy_title)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1299,46 +1109,6 @@ private fun SettingsScreen(
         )
         Spacer(Modifier.height(AppSpacing.small))
     }
-}
-
-@Composable
-private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = AppShapes.card,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-        ) {
-            Column { content() }
-        }
-    }
-}
-
-@Composable
-private fun LanguageChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = AppDimensions.choiceRowMinHeight)
-            .focusOutline(AppShapes.control)
-            .clickable(onClick = onClick)
-            .padding(horizontal = AppSpacing.medium, vertical = AppSpacing.xSmall),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        RadioButton(selected = selected, onClick = onClick)
-    }
-}
-
-@Composable
-private fun ThemeChoiceRow(
-    value: ThemePreference,
-    selected: ThemePreference,
-    label: String,
-    onSelected: (ThemePreference) -> Unit
-) {
-    LanguageChoiceRow(label, value == selected) { onSelected(value) }
 }
 
 private fun appVersion(context: Context): String =

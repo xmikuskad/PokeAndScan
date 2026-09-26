@@ -22,6 +22,7 @@ object AppDimensions {
     val settingsActionRowMinHeight: Dp = 56.dp
     val cardCornerRadius: Dp = 16.dp
     val controlCornerRadius: Dp = 12.dp
+    val statusBadgeCornerRadius: Dp = 10.dp
 }
 
 object AppShapes {
